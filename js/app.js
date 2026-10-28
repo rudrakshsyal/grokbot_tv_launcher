@@ -61,10 +61,10 @@
   }
 
   /* ---------------- rows ---------------- */
-  // y = vertical order on screen. info(0) · cw(1) · refresh(1.9) · picks(2) · acts(2.5) · dock(3)
+  // y = vertical order on screen. info(0) · cw(1) · platform(1.8) · tabs(1.9) · picks(2) · acts(2.5) · dock(3)
   var rows = [];
   var focus = { r: 0, i: 0 };
-  var dockRow = null, infoRow = null, traktRow = null, cwRow = null, refreshRow = null, picksRow = null, actsRow = null;
+  var dockRow = null, infoRow = null, traktRow = null, cwRow = null, platRow = null, refreshRow = null, picksRow = null, actsRow = null;
   var discoverOn = false;
 
   function hexToRgba(hex, a) {
@@ -116,7 +116,9 @@
   function buildDiscover() {
     traktRow = mkRow({ kind: 'trakt', y: 0.8 });
     cwRow = mkRow({ kind: 'cw', y: 1 });
-    refreshRow = mkRow({ kind: 'tabs', y: 1.9, items: [], data: [] });   // Movies | Shows | Refresh
+    platRow = mkRow({ kind: 'plat', y: 1.8, items: [], data: [] });     // ‹ Netflix › — Left/Right slides to the next service
+    refreshRow = mkRow({ kind: 'tabs', y: 1.9, items: [], data: [] });   // Movies | Shows (| Refresh in the no-platform fallback)
+    paintPlat();
     paintTabs();
     picksRow = mkRow({ kind: 'picks', y: 2 });
     actsRow = mkRow({ kind: 'acts', y: 2.5 });
@@ -130,6 +132,53 @@
   function switchTab(k) {
     if (k !== 'movie' && k !== 'tv' || k === tab) return;
     tab = k; paintTabs(); loadPicks({});
+  }
+  /* ---------- platform carousel: one streaming service per page (live data only) ---------- */
+  var plats = DSC && DSC.platforms ? DSC.platforms() : [], platI = 0, platShown = false;
+  if (params.plat && plats.indexOf(params.plat) >= 0) platI = plats.indexOf(params.plat);
+  function platMode() { return plats.length > 0; }
+  function platKey() { return plats[platI]; }
+  function paintPlat() {
+    if (!platRow) return;
+    var on = platMode();
+    $('picks').classList.toggle('has-plat', on);
+    platRow.items = on ? [$('plat')] : []; platRow.data = on ? [platKey()] : [];
+    if (!on) return;
+    var key = platKey(), app = APPS[key];
+    $('platLogo').innerHTML = logoHTML(key);
+    $('plat').setAttribute('style', brandVars(app));
+    $('platName').textContent = app.name;
+    $('platDots').innerHTML = plats.map(function (k, i) { return '<i' + (i === platI ? ' class="on"' : '') + '></i>'; }).join('');
+  }
+  var slideDir = 0, ghostTimer = null;
+  function reduceMotion() { return body.classList.contains('reduce-motion'); }
+  /* Carousel: the old page is cloned into a ghost that slides/fades out while the new one slides in (transform + opacity
+   * only, ~300 ms). A new press mid-slide drops the old ghost at once, so rapid presses never queue. */
+  function slideOut(d) {
+    var old = $('pkStage').querySelector('.pk-ghost'); if (old) old.parentNode.removeChild(old);
+    clearTimeout(ghostTimer);
+    if (reduceMotion()) return;
+    var g = $('pkTrack').cloneNode(true); g.removeAttribute('id'); g.className = 'pk-track pk-ghost';
+    [].forEach.call(g.querySelectorAll('.is-focused, .act-open'), function (e) { e.classList.remove('is-focused'); e.classList.remove('act-open'); });
+    $('pkStage').appendChild(g);
+    void g.offsetWidth;
+    g.className = 'pk-track pk-ghost ' + (d > 0 ? 'go-l' : 'go-r');
+    ghostTimer = setTimeout(function () { if (g.parentNode) g.parentNode.removeChild(g); }, 340);
+    slideDir = d;
+  }
+  function slideIn(el, d) {
+    if (!d || reduceMotion()) return;
+    el.classList.remove('slide-in'); el.classList.add(d > 0 ? 'from-r' : 'from-l');
+    void el.offsetWidth;
+    el.classList.add('slide-in'); el.classList.remove('from-r'); el.classList.remove('from-l');
+  }
+  function switchPlatform(d, land) {
+    if (!platMode() || plats.length < 2) return;
+    platI = (platI + d + plats.length) % plats.length;
+    pendingPicks = null;
+    slideOut(d); paintPlat(); slideIn($('plat'), d);
+    var r = rows[focus.r], inPicks = r === picksRow || r === actsRow;
+    loadPicks({ keepIdx: land === 'last' ? 2 : 0, platSwitch: true, focusPicks: inPicks });
   }
   function appName(k) { return k && APPS[k] ? APPS[k].name : null; }
   function fmtDate(iso) { var d = new Date(iso); return isNaN(d) ? '' : MONTHS[d.getMonth()].slice(0, 3) + ' ' + d.getDate() + ', ' + d.getFullYear(); }
@@ -185,10 +234,20 @@
     return m >= 60 ? Math.floor(m / 60) + 'h' + (m % 60 ? ' ' + (m % 60) + 'm' : '') : m + 'm';
   }
   /* Clean card: artwork, title, year · runtime, one genre line and the rating badge. Actions only on the focused card. */
+  var TOMATO = '<svg class="rt-ic" viewBox="0 0 24 24"><path fill="#fa320a" d="M12 6.2c5 0 8.6 3.1 8.6 7.4S17 21.6 12 21.6 3.4 18 3.4 13.6 7 6.2 12 6.2z"/>' +
+    '<path fill="#00912d" d="M12.6 6.6c.6-1.6 1.8-2.6 3.6-2.8-.5 1-1.4 1.7-2.4 2 1.3-.2 2.6.3 3.4 1.2-1.3.4-2.7.2-3.8-.4.2 1-.3 2-1.1 2.6-.2-1-.1-1.9.3-2.6z"/></svg>';
+  var SPLAT = '<svg class="rt-ic" viewBox="0 0 24 24"><path fill="#0ac855" d="M12 3l2 4.6 4.8-1.8-1.8 4.6L22 12l-4.9 1.8 1.7 4.7-4.6-1.9L12 21l-2.2-4.4-4.6 1.9 1.7-4.7L2 12l4.9-1.7L5.2 5.8 10 7.6z"/></svg>';
+  function yearLine(t) {
+    var x = t.kind === 'tv' && t.seasons ? t.seasons + (t.seasons === 1 ? ' season' : ' seasons') : runtimeShort(t);
+    return [t.year, x].filter(Boolean).join(' \u00b7 ');
+  }
   function cardHTML(p, idx) {
     var t = p.item, app = APPS[t.app];
     var src = t.ratingSource, rate = t.rating ? '<div class="rate' + (src === 'TMDB' ? ' tmdb' : src === 'MOCK' ? ' mock' : '') + '"><b>' +
       esc(src === 'TMDB' ? 'TMDB' : src) + '</b> <span>' + t.rating.toFixed(1) + '</span></div>' : '';
+    /* Rotten Tomatoes critics score (OMDb) — only when it exists; fresh tomato >= 60 %, green splat below */
+    if (t.rt != null) rate += '<div class="rate rt' + (t.rt >= 60 ? '' : ' rotten') + '">' + (t.rt >= 60 ? TOMATO : SPLAT) + '<span>' + t.rt + '%</span></div>';
+    if (rate) rate = '<div class="rates">' + rate + '</div>';
     /* Placeholder underneath; poster, then backdrop, as stacked backgrounds: a layer that fails to load just doesn't paint. */
     var imgs = [DSC.art(t.poster), t.backdrop].filter(Boolean).map(function (u) { return 'url(\'' + esc(u) + '\')'; }).join(',');
     var art = '<div class="card-art"><div class="ph" style="background:linear-gradient(165deg,hsl(' + (idx * 97 + 200) % 360 + ',45%,38%),hsl(' + (idx * 97 + 240) % 360 + ',50%,14%))"><b>' +
@@ -202,7 +261,7 @@
     return '<div class="card" data-i="' + idx + '"><div class="card-bg"></div><div class="card-fx"></div>' + art +
       '<div class="card-body">' + (picksState.mode === 'mock' ? '<span class="mockchip">MOCK</span>' : '') +
       '<div class="card-t">' + esc(t.title) + '</div>' +
-      '<div class="card-y">' + esc([t.year, runtimeShort(t)].filter(Boolean).join(' \u00b7 ')) + '</div>' +
+      '<div class="card-y">' + esc(yearLine(t)) + '</div>' +
       (genre ? '<div class="card-g">' + esc(genre) + '</div>' : '') + rate +
       '</div>' +
       '<div class="card-acts">' + acts.map(function (a) { return '<span class="act' + (a[0] === 'dismiss' ? ' act-ni' : '') + '" data-a="' + a[0] + '">' + esc(a[1]) + '</span>'; }).join('') + '</div></div>';
@@ -212,32 +271,60 @@
     var list = picksState.picks.slice(0, 3);                                   // never more than 3
     list.forEach(function (p) { sessionIds[p.item.id] = 1; });                 // Refresh never brings these back this session
     if (discoverOn) markSeen();
+    var pm = !!picksState.platformMode, pname = pm ? appName(picksState.platform) : '';
     $('pkTrack').innerHTML = list.length ? list.map(cardHTML).join('') :
-      '<div class="pk-none">No ' + (tab === 'movie' ? 'movie' : 'show') + ' picks right now</div>';
+      '<div class="pk-none">' + (picksState.mode === 'loading' ? 'Finding the top ' + (tab === 'movie' ? 'movies' : 'shows') + ' on ' + esc(pname) + '\u2026' :
+        'No ' + (tab === 'movie' ? 'movie' : 'show') + ' picks ' + (pm ? 'on ' + esc(pname) + ' ' : '') + 'right now') + '</div>';
+    if (slideDir) { slideIn($('pkTrack'), slideDir); slideDir = 0; }
+    if (window.RH_Wallpaper && RH_Wallpaper.addGlass) [].forEach.call($('pkTrack').querySelectorAll('.card-bg'), function (b) { RH_Wallpaper.addGlass(b); });
     var src = '';
     if (picksState.mode === 'snapshot') src = picksState.source + ' snapshot \u00b7 ratings as of ' + fmtDate(picksState.fetchedAt);
+    if (pm && picksState.mode === 'live') {
+      var anyRt = list.some(function (p) { return p.item.rt != null; });
+      src = 'Top ' + (tab === 'movie' ? 'movies' : 'shows') + ' on ' + pname + ' (US) \u00b7 ranked by ' + (picksState.omdb ? 'IMDb' + (anyRt ? ' + Rotten Tomatoes' : '') + ' via OMDb' : 'TMDB score') +
+        ' \u00b7 updated ' + fmtDate(picksState.fetchedAt);
+    }
     else if (picksState.mode === 'live') src = 'TMDB trending, week of ' + fmtDate(picksState.weekOf || picksState.fetchedAt) +
       (picksState.omdb ? ' \u00b7 ratings: IMDb via OMDb' : ' \u00b7 ratings: TMDB score');
     $('pkSrc').innerHTML = picksState.mode === 'mock' ? '<span class="mockchip">MOCK DATA</span> fictional titles for layout testing (?mock=1)' : esc(src);
     if (list.length) anyPicks = true;
-    $('picks').className = 'picks' + (picksState.mode !== 'none' || anyPicks ? '' : ' empty');
+    $('picks').className = 'picks' + (picksState.mode !== 'none' || anyPicks ? '' : ' empty') + (platMode() ? ' has-plat' : '');
     picksRow.items = [].slice.call($('pkTrack').querySelectorAll('.card')); picksRow.data = list;
     var fr = rows[focus.r] === refreshRow ? refreshRow.data[focus.i] : null;
-    refreshRow.items = anyPicks ? [$('tabMovie'), $('tabTv')].concat(list.length ? [$('refresh')] : []) : [];
+    if (pm && res.mode === 'live') platShown = true;
+    refreshRow.items = anyPicks || pm ? [$('tabMovie'), $('tabTv')].concat(list.length && !pm ? [$('refresh')] : []) : [];
     refreshRow.data = refreshRow.items.map(function (el) { return el.getAttribute('data-k') || 'refresh'; });
     if (fr && refreshRow.data.indexOf(fr) < 0) setFocus(rows.indexOf(refreshRow), tab === 'movie' ? 0 : 1, true);
     actsRow.items = []; actsRow.parent = -1;
     resetCenters(); updateHint();
     var r = rows[focus.r];
-    if (r === picksRow || r === actsRow) {
+    if (r === picksRow || r === actsRow || (focusPicksNext && r === platRow && list.length)) {
       if (picksRow.items.length) setFocus(rows.indexOf(picksRow), Math.min(keepIdx || 0, picksRow.items.length - 1), true);
+      else if (pm) setFocus(rows.indexOf(platRow), 0, true);
       else goDock();
     }
+    focusPicksNext = false;
+    if (pm && window.RH_Wallpaper && RH_Wallpaper.placeGlass) setTimeout(function () { RH_Wallpaper.placeGlass(); }, 360);
   }
-  var sessionIds = {}, anyPicks = false;
+  var sessionIds = {}, anyPicks = false, focusPicksNext = false;
+  function loadPlatform(opt) {
+    var key = platKey(), kind = tab, got = false;
+    DSC.platformPicks(key, kind, function (res) {
+      if (res.platform !== platKey() || res.kind !== tab) return;   // a slow answer for another page/tab
+      got = true;
+      if (res.failed) {
+        if (!platShown) { plats = []; paintPlat(); return loadPicks({}); }   // no live data at all: Tonight's Picks fallback (cache/snapshot)
+      } else if (res.background && discoverOn && picksRow.items.length) { pendingPicks = res; return; }
+      pendingPicks = null; renderPicks(res, opt.keepIdx);
+      later(function () { DSC.prefetchPlatform(plats[(platI + 1) % plats.length]); DSC.prefetchPlatform(plats[(platI + plats.length - 1) % plats.length]); });
+    }, opt);
+    if (!got && (opt.platSwitch || !picksRow.items.length)) renderPicks({ mode: 'loading', platformMode: true, platform: key, picks: [] });
+  }
   function loadPicks(opt) {
     if (!DSC || !DSC.enabled) return;
     opt = opt || {}; opt.kind = tab;
+    if (opt.focusPicks) focusPicksNext = true;
+    if (platMode()) return loadPlatform(opt);
     DSC.picks(function (res) {
       if (res.kind && res.kind !== tab) return;                     // a slow answer for the other tab
       if (res.exhausted) { if (!res.background) toast('No new picks left for now. These are the best ones', 2600); return; }
@@ -309,7 +396,7 @@
     if (row === picksRow) { actsRow.parent = i; actsRow.items = [].slice.call(el.querySelectorAll('.act')); actsRow.data = (picksRow.data[i].acts || []).map(function (a) { return a[0]; }); }
     if (row === actsRow) { var pc = picksRow.items[actsRow.parent]; if (pc) pc.classList.add('act-open'); }
     var k = row.kind;
-    if (k === 'trakt' || k === 'cw' || k === 'tabs' || k === 'picks' || k === 'acts') setDiscover(true);
+    if (k === 'trakt' || k === 'cw' || k === 'plat' || k === 'tabs' || k === 'picks' || k === 'acts') setDiscover(true);
     if (k === 'tabs' && row.data[i] !== 'refresh') switchTab(row.data[i]);            // Left/Right on the tab row switches tabs
     if (row === dockRow && prevRow && prevRow !== dockRow && !silent) showDock();
     if (k === 'apps') setDiscover(false);
@@ -320,15 +407,17 @@
     if (!rw.items.length) return false;
     if (rw.kind === 'info') return body.classList.contains('has-wp');
     if (rw.kind === 'acts') return from === picksRow || from === actsRow;
-    if (rw.kind === 'tabs') return from === picksRow || from === refreshRow || from === cwRow || from === traktRow;
+    if (rw.kind === 'tabs' || rw.kind === 'plat') return from === picksRow || from === refreshRow || from === platRow || from === cwRow || from === traktRow;
     return true;
   }
   function goDock() { var f = parseInt(store('rh.focus'), 10); setFocus(rows.indexOf(dockRow), dockRow.items[f] ? f : (lastDockI || 0)); }
   var lastDockI = 0;
   function move(dr, di) {
     var row = rows[focus.r];
+    if (di && row === platRow) return switchPlatform(di);                     // ‹ › on the platform header
     if (di) {
       var ni = focus.i + di;
+      if (row === picksRow && (ni < 0 || ni >= row.items.length) && platMode()) return switchPlatform(di, di < 0 ? 'last' : 'first');   // past the edge: next service
       if (ni >= 0 && ni < row.items.length) setFocus(focus.r, ni);
       else nudge(di, 0);
       return;
@@ -337,6 +426,7 @@
     // explicit hops: Up from the dock opens Discover (Resume first); Down from info/Discover lands on the dock
     if (row === dockRow && dr < 0 && hasDiscover()) {
       if (cwRow.items.length) return setFocus(rows.indexOf(cwRow), 0);     // real unfinished Trakt content always comes first
+      if (!picksRow.items.length && platRow.items.length) return setFocus(rows.indexOf(platRow), 0);
       if (!picksRow.items.length && refreshRow.items.length) return setFocus(rows.indexOf(refreshRow), tab === 'movie' ? 0 : 1);
       if (!picksRow.items.length) return setFocus(rows.indexOf(traktRow), 0);
       return setFocus(rows.indexOf(picksRow), Math.min(1, picksRow.items.length - 1));
@@ -413,6 +503,7 @@
   function launchApp(key) {
     var app = APPS[key]; if (!app || launching) return;
     launching = true;
+    if (DSC && DSC.noteLaunch) DSC.noteLaunch(key);   // local usage count: orders the Discover platform pages
     var cacheKey = 'rh.appid.' + key, cached = store(cacheKey);
     var ids = params.noresolve ? [] : uniq([].concat(CFG.appIdOverrides[key] || [], app.tizenIds || [], [cached, installed[key]]));
     var tried = {}, i = 0;
@@ -452,6 +543,7 @@
     press(el);
     if (row.kind === 'apps') return launchApp(row.data[focus.i]);
     if (row.kind === 'info') return toggleCredit();
+    if (row.kind === 'plat') return launchApp(platKey());
     if (row.kind === 'tabs') { if (row.data[focus.i] === 'refresh') { hideHint(); return refreshPicks(); } return; }
     if (row.kind === 'trakt') return traktFlow ? toast('Waiting for trakt.tv/activate\u2026', 2000) : startTraktConnect();
     if (row.kind === 'cw') {
@@ -620,7 +712,7 @@
   /* ---------------- keys ---------------- */
   function registerKeys() {
     if (!IS_TIZEN || !tizen.tvinputdevice) return;
-    ['ColorF0Red', 'ColorF1Green', 'ColorF2Yellow', 'ColorF3Blue'].forEach(function (k) {
+    ['ColorF0Red', 'ColorF1Green', 'ColorF2Yellow', 'ColorF3Blue', 'ChannelUp', 'ChannelDown', 'MediaFastForward', 'MediaRewind'].forEach(function (k) {
       try { tizen.tvinputdevice.registerKey(k); } catch (e) { log('registerKey', k, e); }
     });
   }
@@ -646,7 +738,11 @@
         if (rows[focus.r] === picksRow) return doAct(picksRow.data[focus.i], 'dismiss', focus.i);
         if (rows[focus.r] === actsRow) return doAct(picksRow.data[actsRow.parent], 'dismiss', actsRow.parent);
         toggleCredit(); return;
-      case 80 /* p (preview): new picks */: refreshPicks(); return;
+      case 80 /* p (preview): new picks */: if (!platMode()) refreshPicks(); return;
+      case 427: case 417: case 34: /* ChannelUp / FastForward / PageDown (preview): next service */
+      case 428: case 412: case 33: /* ChannelDown / Rewind / PageUp: previous service */
+        if (discoverOn && platMode()) { e.preventDefault(); switchPlatform(k === 427 || k === 417 || k === 34 ? 1 : -1, 'first'); }
+        return;
     }
   }
 
@@ -712,7 +808,8 @@
     // Debug hooks for automated preview/testing
     window.RH_debug = { focus: focus, rows: rows, setFocus: setFocus, launchApp: launchApp, installed: installed, toggleCredit: toggleCredit,
       get discoverOn() { return discoverOn; }, rowIndex: function (k) { for (var i = 0; i < rows.length; i++) if (rows[i].kind === k) return i; return -1; },
-      picks: function () { return picksState; }, reloadPicks: loadPicks, refresh: refreshPicks, session: function () { return sessionIds; },
+      picks: function () { return picksState; }, get platform() { return platMode() ? platKey() : null; }, platforms: function () { return plats.slice(); },
+      switchPlatform: switchPlatform, reloadPicks: loadPicks, refresh: refreshPicks, session: function () { return sessionIds; },
       get idle() { return idleOn; }, get dockOn() { return dockOn; }, get tab() { return tab; }, switchTab: switchTab, enterIdle: enterIdle, wake: wake, traktStatus: function () { return $('tstat').textContent; } };
   }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot); else boot();

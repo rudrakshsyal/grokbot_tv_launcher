@@ -1,9 +1,10 @@
 # Glass Home — a calm home screen for Samsung Tizen TVs
 
 A "Liquid Glass"-style launcher web app for Samsung Smart TVs. It shows a big clock, the weather and slowly rotating scenic
-photos, with a glass dock of your streaming apps one button-press away. Press **Up** and you get **Discover**: three
-light-hearted "Tonight's Picks" (movies or shows) that are on the services in your dock, plus optional **Resume Watching**
-from your Trakt account.
+photos, with a glass dock of your streaming apps one button-press away. Press **Up** and you get **Discover**: one streaming
+service at a time (Netflix, HBO Max, Prime Video, Hulu, Apple TV+, Peacock, Disney+), each with its **Top 3 Shows / Top 3
+Movies** ranked by IMDb + Rotten Tomatoes, sliding from service to service like a carousel, plus optional **Resume
+Watching** from your Trakt account. Without API keys it falls back to three "Tonight's Picks" from a dated IMDb snapshot.
 
 It is plain HTML/CSS/JavaScript (no framework, no build step besides a small shell script), designed for a 1920×1080 TV.
 
@@ -12,6 +13,8 @@ It is plain HTML/CSS/JavaScript (no framework, no build step besides a small she
 | ![Ambient](docs/preview-v2-ambient.png) | ![Dock](docs/preview-v2-dock.png) |
 | **Discover → Movies** | **Discover → Shows** |
 | ![Discover movies](docs/preview-v2-discover-movies.png) | ![Discover shows](docs/preview-v2-discover-shows.png) |
+| **Discover → Netflix (Movies)** | **Discover → HBO Max (Shows)** |
+| ![Netflix page](docs/preview-v3-netflix.png) | ![HBO Max page](docs/preview-v3-hbo.png) |
 
 *(Screenshots are headless desktop renders at 1920×1080.)*
 
@@ -322,7 +325,9 @@ Samsung's home bar — see [Honest limits](#honest-limits-read-first).)
 | **Left / Right** | Move between apps, cards, tabs |
 | **Enter** | Launch the focused app / run the focused action |
 | **Up** (from the dock) — "Up for picks" | Open **Discover** (Resume Watching first if you have any, otherwise the middle pick; Movies \| Shows tabs) |
-| **Up / Down** (in Discover) | Move between Resume Watching, tabs/Refresh, picks and the card actions (*Open in &lt;App&gt;*, *Trailer*, *Not interested*) |
+| **Up / Down** (in Discover) | Move between Resume Watching, the service header, Movies \| Shows tabs, picks and the card actions (*Open in &lt;App&gt;*, *Trailer*, *Not interested*) |
+| **Left / Right** on the service header | Slide to the previous / next streaming service (also: Right past the last card, Left past the first) |
+| **Channel Up / Down** (in Discover) | Next / previous streaming service from anywhere in Discover |
 | **Down** from a pick | Its actions; **Down** again (from the actions) returns to the dock |
 | **Back** | Step back: hide the photo credit → leave a card's actions → leave Discover → hide the dock → jump to the first tile. From there, Back **twice within 2 s** exits (`back.mode`; `'never'` disables exiting) |
 | **Red** | Cycle the glass look: baked → live blur → solid |
@@ -338,9 +343,9 @@ wallpaper, which slowly dims (`idle` settings).
 
 Open `index.html` in Chrome (double-click it). Keyboard: arrows, Enter, Esc/Backspace = Back, and for the colour keys
 `R` = Red, `F` = Green (FPS), `I` = Yellow, `N` = Blue, `P` = new picks. Useful URL options: `?mock=1` (clearly labelled
-fake data), `?blur=baked|live|off`, `?discover=0`, `?wp=off`, `?idle=0`, `?dock=1`, `?tab=movie|tv`.
+fake data), `?blur=baked|live|off`, `?discover=0`, `?wp=off`, `?idle=0`, `?dock=1`, `?tab=movie|tv`, `?plat=netflix|hbomax|prime|hulu|appletv|peacock|disney`.
 
-Developer scripts in `tools/` (`test-nav.js`, `preview-v2.js`, `screenshot.js`, `fetch-weekly.js`, …) need Node.js,
+Developer scripts in `tools/` (`test-nav.js`, `preview-v2.js`, `preview-v3.js`, `screenshot.js`, `fetch-weekly.js`, …) need Node.js,
 `npm install playwright-core` and Google Chrome (set `CHROME=/path/to/chrome` if it's not at `/usr/bin/google-chrome`).
 `node tools/fetch-weekly.js` refreshes the offline IMDb snapshot (picks older than 21 days are hidden).
 
@@ -372,6 +377,30 @@ Then, to put the TV back to normal:
 - On your computer: delete `dist/`, `.secrets/` and any `.wgt`; revoke the Trakt app at <https://trakt.tv/oauth/authorized_applications>
   and remove the Tizen Studio folder if you no longer need it.
 
+## Discover by streaming service
+
+Needs a free TMDB key (OMDb recommended). Discover shows **one service per page**, in dock order, re-sorted by how often
+you open each app from Glass Home (`discover.platforms`, `platformsByUsage`; YouTube has no catalogue and is skipped).
+
+- **Top 3 Shows / Top 3 Movies** (one row; the Movies | Shows tab switches). Candidates come from TMDB `discover` limited
+  to that service's US **subscription** catalogue (`with_watch_providers` + `watch_region=US` + `flatrate`), comedy-led
+  with a broader well-voted query; no animation/anime, crime, horror, thriller, war, reality, talk or news leads.
+  Titles you marked *Not interested* or already watched on Trakt never appear.
+- **Ranking:** IMDb rating via OMDb (with a vote-count sanity check) blended with the **Rotten Tomatoes** critics score
+  (OMDb `Ratings`), then popularity, a light-comedy bonus and what you tend to open. TMDB's own score only stands in when
+  OMDb has nothing.
+- **Tiles:** pre-blurred "liquid glass" (no live blur), poster, title, year · runtime (or seasons), genre, an `IMDb 8.1`
+  badge and a tomato `92%` badge, the latter **only** when OMDb has a real RT score (TV series often don't). Actions appear
+  only on the focused card.
+- **Carousel:** Left/Right on the service header (or Channel Up/Down) slides the page out and the next one in, using only
+  `transform` + `opacity` (300 ms; instant with reduced motion). Rapid presses never queue.
+- **Caching:** each service's list is stored in `localStorage` (`rh.dsc.plat.<service>`, refreshed after 12 h in the
+  background) and the neighbouring services are prefetched, so paging is instant. No key or no network and no cache →
+  the classic three Tonight's Picks from the snapshot.
+- **No "coming soon / leaving soon" rows:** there's no free, keyless, reliable source for them (TMDB has none, JustWatch has
+  no public API, Watchmode's free tier needs its own key and only previews 10 leaving titles), so they're not shown rather
+  than guessed.
+
 ## Project layout
 
 | Path | Purpose |
@@ -381,23 +410,23 @@ Then, to put the TV back to normal:
 | `js/config.js` | **All user settings** + empty key placeholders |
 | `js/apps.js`, `js/logos.js` | App catalogue (Tizen IDs, name matching) and dock logos |
 | `js/app.js` | Focus engine, Ambient/Discover, launching, remote keys, clock, idle |
-| `js/discover.js` | Tonight's Picks (TMDB/OMDb live or IMDb snapshot), scoring, Trakt |
+| `js/discover.js` | Per-service Top 3 (TMDB discover + OMDb IMDb/Rotten Tomatoes), Tonight's Picks fallback (IMDb snapshot), scoring, Trakt |
 | `js/weather.js` | Open-Meteo weather |
 | `js/wallpaper.js`, `js/wallpapers.js` | Wallpaper rotator + "baked glass", wallpaper list/credits |
 | `js/tizen-shim.js` | Lets the app run in a desktop browser for previews |
 | `data/weekly.json`, `data/weekly.embed.js` | Dated snapshot of IMDb's public Most Popular charts (offline picks) |
-| `images/wallpapers/` | 12 bundled photos (+ `blur/` pre-blurred copies) — see `CREDITS.md` |
+| `images/wallpapers/` | 10 bundled 4K (3840×2160) photos (+ `blur/` pre-blurred copies) — see `CREDITS.md` |
 | `tools/make-dist.sh` | Build `dist/`, inject keys from env vars |
 | `tools/trakt-link.sh` | One-time Trakt sign-in (PKCE) |
 | `tools/build-wallpapers.py`, `tools/wallpapers.json` | Rebuild wallpapers from Wikimedia Commons |
 | `tools/fetch-weekly.js` | Refresh the IMDb snapshot |
-| `tools/test-*.js`, `tools/preview-v2.js`, `tools/screenshot.js` | Headless tests and screenshots (Playwright + Chrome) |
+| `tools/test-*.js`, `tools/preview-v2.js`, `tools/preview-v3.js`, `tools/screenshot.js` | Headless tests and screenshots (Playwright + Chrome) |
 | `docs/` | README screenshots |
 
 ## Credits & licenses
 
 - **Code:** MIT — see [`LICENSE`](LICENSE). © 2026 Rudraksh Syal.
-- **Wallpapers:** 12 photos from Wikimedia Commons under CC0, CC BY 2.0, CC BY-SA 2.0/3.0/4.0 or public domain (US NPS).
+- **Wallpapers:** 10 photos (3840×2160, cropped from larger originals) from Wikimedia Commons under CC0, CC BY 2.0, CC BY-SA 2.0/3.0/4.0 or public domain (US NPS).
   Photographers, licenses and source links are in [`CREDITS.md`](CREDITS.md); the credit is also viewable on screen
   (Yellow key). The resized copies of BY-SA photos are shared under the same license as the originals. These photos are
   **not** MIT-licensed.

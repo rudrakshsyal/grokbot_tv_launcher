@@ -62,7 +62,15 @@ window.RH_CONFIG = {
     detailLookups: 30,        // TMDB detail calls per refresh, split between movies and shows (Movies | Shows tabs)
     timeoutMs: 7000,
     resumeMax: 2,             // Resume Watching items (real unfinished Trakt content only; the row is hidden otherwise)
-    artCacheMax: 9,           // posters kept as data: URLs so home paints with artwork even offline
+    artCacheMax: 18,          // posters kept as data: URLs so home paints with artwork even offline
+    /* Platform pages (needs a TMDB key): Discover shows one streaming service at a time — Top 3 Shows / Top 3 Movies on
+     * its US subscription catalogue, ranked by IMDb + Rotten Tomatoes (OMDb) and household taste. Left/Right on the
+     * platform header, Channel Up/Down or past the first/last card slide to the previous/next service. */
+    platformPages: true,
+    platforms: ['netflix', 'hbomax', 'prime', 'hulu', 'appletv', 'peacock', 'disney'],   // default order (YouTube excluded)
+    platformsByUsage: true,   // re-sort at start-up by how often each app was opened from this launcher (local count)
+    platformRefreshHours: 12, // each service's list is cached; refetched in the background when older
+    platformLookups: 8,       // TMDB detail + OMDb lookups per tab per service
     /* Picks are filtered first (light comedy, on one of the services in your dock, slot + runtime for tonight), then ranked by this
      * weighted score. Learned weights (kind/genre/selected) come from local use only: Open/Trailer and Not interested. */
     weights: { rating: 3, popularity: 2, fit: 1.5, tonight: 1.5, traktRec: 1.2, kind: 0.8, genre: 0.6, selected: 1.5, seen: 3 }

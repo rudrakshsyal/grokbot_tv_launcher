@@ -63,6 +63,7 @@
     if (w && w.blur) { g.a.style.backgroundImage = 'url("' + w.blur + '")'; g.a.className = 'on'; g.front = g.a; }
   }
   function glassTo(url) {
+    glass = glass.filter(function (g) { return document.body.contains(g.el); });   // drop surfaces of re-rendered cards
     glass.forEach(function (g) {
       var nxt = g.front === g.a ? g.b : g.a, prev = g.front;
       nxt.style.backgroundImage = 'url("' + url + '")';
@@ -167,7 +168,7 @@
       if (state.front && state.ready) startKb(state.front, state.idx);
     },
     addGlass: addGlass,
-    placeGlass: function (el) { if (el) { if (el.__bk) placeGlass(el.__bk); } else glass.forEach(placeGlass); },
+    placeGlass: function (el) { if (el) { if (el.__bk) placeGlass(el.__bk); } else { glass = glass.filter(function (g) { return document.body.contains(g.el); }); glass.forEach(placeGlass); } },
     get motion() { return state.motion; },
     get current() { return state.list[state.idx]; }
   };

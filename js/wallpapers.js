@@ -8,8 +8,6 @@ window.RH_WALLPAPERS = [
   {"id": "santorini", "src": "images/wallpapers/santorini.jpg", "blur": "images/wallpapers/blur/santorini.jpg", "caption": "Oia, Santorini, Greece", "credit": "C messier · CC BY-SA 4.0"},
   {"id": "yosemite", "src": "images/wallpapers/yosemite.jpg", "blur": "images/wallpapers/blur/yosemite.jpg", "caption": "Tunnel View, Yosemite National Park, California", "credit": "Diliff · CC BY-SA 3.0"},
   {"id": "yellowstone", "src": "images/wallpapers/yellowstone.jpg", "blur": "images/wallpapers/blur/yellowstone.jpg", "caption": "Grand Prismatic Spring, Yellowstone, Wyoming", "credit": "Carsten Steger · CC BY-SA 4.0"},
-  {"id": "haleakala", "src": "images/wallpapers/haleakala.jpg", "blur": "images/wallpapers/blur/haleakala.jpg", "caption": "Haleakalā sunrise, Maui, Hawaiʻi", "credit": "Mferbfriske · CC BY-SA 2.0"},
   {"id": "na-pali", "src": "images/wallpapers/na-pali.jpg", "blur": "images/wallpapers/blur/na-pali.jpg", "caption": "Nā Pali Coast, Kauaʻi, Hawaiʻi", "credit": "dronepicr · CC BY 2.0"},
-  {"id": "denali", "src": "images/wallpapers/denali.jpg", "blur": "images/wallpapers/blur/denali.jpg", "caption": "Wonder Lake, Denali National Park, Alaska", "credit": "NPS / Mary Lewandowski · Public domain"},
-  {"id": "napa", "src": "images/wallpapers/napa.jpg", "blur": "images/wallpapers/blur/napa.jpg", "caption": "Vineyards, Napa Valley, California", "credit": "Brocken Inaglory · CC BY-SA 3.0"}
+  {"id": "denali", "src": "images/wallpapers/denali.jpg", "blur": "images/wallpapers/blur/denali.jpg", "caption": "Wonder Lake, Denali National Park, Alaska", "credit": "NPS / Mary Lewandowski · Public domain"}
 ];

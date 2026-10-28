@@ -42,13 +42,24 @@ async function fixtures(page, gen) {
         [f[1] === 'tv' ? 'first_air_date' : 'release_date']: '2026-01-01', genre_ids: f[3], overview: 'Fixture synopsis.', poster_path: null, vote_average: 7.9, vote_count: 900 }));
       return route.fulfill(ok({ results: rows }));
     }
+    if (u.pathname.includes('/discover/')) {   // per-service catalogue: filter by kind, provider ids, genres
+      const kind = u.pathname.includes('/tv') ? 'tv' : 'movie', provs = (u.searchParams.get('with_watch_providers') || '').split('|').map(Number);
+      const wg = +(u.searchParams.get('with_genres') || 0), wo = (u.searchParams.get('without_genres') || '').split(',').map(Number);
+      gen.discover = (gen.discover || 0) + 1;
+      const rows = u.searchParams.get('page') === '2' ? [] : FIX.filter(f => f[1] === kind && provs.indexOf(f[4]) >= 0 && (!wg || f[3].indexOf(wg) >= 0) && !f[3].some(g => wo.indexOf(g) >= 0))
+        .map(f => ({ id: f[0], [kind === 'tv' ? 'name' : 'title']: f[2] + (gen.v > 1 ? ' v' + gen.v : ''), [kind === 'tv' ? 'first_air_date' : 'release_date']: '2024-01-01',
+          genre_ids: f[3], original_language: 'en', overview: 'Fixture synopsis.', poster_path: null, vote_average: 7.9, vote_count: 900, popularity: 100 - f[0] }));
+      return route.fulfill(ok({ results: rows }));
+    }
     const id = +u.pathname.split('/').pop(), f = FIX.find(x => x[0] === id);
     if (!f) return route.fulfill({ status: 404, body: '{}' });
-    return route.fulfill(ok({ runtime: f[5], episode_run_time: [f[5]], imdb_id: f[6], external_ids: { imdb_id: f[6] },
+    return route.fulfill(ok({ runtime: f[5], episode_run_time: [f[5]], number_of_seasons: 2, imdb_id: f[6], external_ids: { imdb_id: f[6] },
       videos: { results: f[7] ? [{ site: 'YouTube', type: 'Trailer', key: f[7] }] : [] },
       'watch/providers': { results: { US: { flatrate: [{ provider_id: f[4], provider_name: 'x' }] } } } }));
   });
-  await page.route('https://www.omdbapi.com/**', route => { calls.omdb++; return route.fulfill(ok({ imdbRating: '8.3', imdbVotes: '12,345' })); });
+  await page.route('https://www.omdbapi.com/**', route => { calls.omdb++; // only the movie Picnic (tt0000102) has a Rotten Tomatoes score, so the RT badge must appear on that card alone
+    const i = new URL(route.request().url()).searchParams.get('i');
+    return route.fulfill(ok(Object.assign({ imdbRating: '8.3', imdbVotes: '12,345' }, i === 'tt0000102' ? { Ratings: [{ Source: 'Internet Movie Database', Value: '8.3/10' }, { Source: 'Rotten Tomatoes', Value: '92%' }] } : {}))); });
   await page.route('https://api.trakt.tv/**', async route => {
     const u = new URL(route.request().url()); calls.trakt.push(u.pathname + ' ' + (route.request().postData() || ''));
     if (u.pathname === '/oauth/device/code') return route.fulfill(ok({ device_code: 'DEV', user_code: 'AB12CD34', verification_url: 'https://trakt.tv/activate', expires_in: 600, interval: 1 }));
@@ -85,8 +96,9 @@ async function fixtures(page, gen) {
   const pinQ = q => { q = q || ''; if (/nodock/.test(q)) return q; return q + (q ? '&' : '?') + 'dock=1' + (/tab=/.test(q) ? '' : '&tab=tv'); };
   const fresh = async (url, q) => { q = pinQ(q); await page.goto(url + q); await page.evaluate(() => localStorage.clear()); await page.goto(url + q); await page.waitForTimeout(700); };
   // Open-Meteo fixture (Ambient weather): never the real network in tests
-  const WX = { current: { time: '2026-10-27T12:00', temperature_2m: 64.4, weather_code: 2, is_day: 1 },
-    daily: { time: ['2026-10-27', '2026-10-28', '2026-10-29'], weather_code: [2, 61, 0], temperature_2m_max: [70.1, 61.6, 72.9], temperature_2m_min: [50.2, 49.4, 51] } };
+  const dstr = n => { const d = new Date(); d.setDate(d.getDate() + n); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); };
+  const WX = { current: { time: dstr(0) + 'T12:00', temperature_2m: 64.4, weather_code: 2, is_day: 1 },
+    daily: { time: [dstr(0), dstr(1), dstr(2)], weather_code: [2, 61, 0], temperature_2m_max: [70.1, 61.6, 72.9], temperature_2m_min: [50.2, 49.4, 51] } };
   const wxState = { fail: false, calls: 0 };
   await ctx.route('https://api.open-meteo.com/**', r => { wxState.calls++; return wxState.fail ? r.abort() : r.fulfill(ok(WX)); });
   const picks = () => page.evaluate(() => { const s = RH_debug.picks(); return { mode: s.mode, titles: s.picks.map(p => p.item.title), labels: s.picks.map(p => p.label),
@@ -219,39 +231,71 @@ async function fixtures(page, gen) {
   check('everything dismissed: picks hidden, no hint, no errors', p.cards === 0 && !s.hint, p);
 
   /* ---------- 4. Live path (fixtures; fake keys) + stale-while-revalidate ---------- */
-  const gen = { v: 1 }; const fx = await fixtures(page, gen);
+  const gen = { v: 1 }; let fx = await fixtures(page, gen);
   await page.route('**/js/config.js', async route => { const r = await route.fetch(); let b = await r.text();
     b += "\nRH_CONFIG.keys.tmdbApiKey='TEST'; RH_CONFIG.keys.omdbApiKey='TEST'; RH_CONFIG.keys.traktClientId='TESTCID';"; route.fulfill({ response: r, body: b }); });
-  await fresh(httpBase, '?still=1'); await page.waitForTimeout(800); p = await picks();
-  check('live: 3 picks from TMDB trending', p.mode === 'live' && p.cards === 3 && p.titles.every(t => /^FIXTURE/.test(t)), p);
-  check('live: Gloom (horror) not Easy Laugh/Feel-Good', p.titles.indexOf('FIXTURE · Gloom') < 0 || p.labels[p.titles.indexOf('FIXTURE · Gloom')] === 'Trending & Worth It', p);
-  check('live source label "TMDB trending, week of … · ratings: IMDb via OMDb"', /^TMDB trending, week of \w{3} \d+, \d{4} \u00b7 ratings: IMDb via OMDb$/.test(p.src), p.src);
+  await fresh(httpBase, '?still=1'); await page.waitForTimeout(1200); p = await picks();
+  // v3: one streaming service per page (TMDB discover with_watch_providers, US flatrate); Netflix first (default order)
+  check('platform page: Netflix first, its shows only (TMDB discover fixture)', p.mode === 'live' && (await page.evaluate(() => RH_debug.platform)) === 'netflix' &&
+    p.cards === 2 && p.titles.join('|') === 'FIXTURE · Desk Jokes|FIXTURE · Brunch Club', p);
+  check('platform: rank labels #1 #2', p.labels.join('|') === '#1|#2', p.labels);
+  check('platform source label "Top shows on Netflix (US) · ranked by IMDb + Rotten Tomatoes via OMDb · updated …"', /^Top shows on Netflix \(US\) \u00b7 ranked by IMDb( \+ Rotten Tomatoes)? via OMDb \u00b7 updated \w{3} \d+, \d{4}$/.test(p.src), p.src);
   check('live: OMDb consulted, IMDb rating shown', fx.calls.omdb > 0 && /IMDb 8\.3/.test(await page.textContent('#pkTrack')));
-  check('live: provider shown as "Open in <App>"', /Open in (Netflix|Disney\+|Apple TV|Peacock|HBO Max)/.test(await page.textContent('#pkTrack')));
+  check('no Rotten Tomatoes badge without an RT score', await page.evaluate(() => !document.querySelector('#pkTrack .rate.rt')));
+  check('card year line shows seasons for shows', /2024 \u00b7 2 seasons/.test(await page.textContent('#pkTrack')), await page.textContent('#pkTrack'));
+  check('live: provider shown as "Open in Netflix"', /Open in Netflix/.test(await page.textContent('#pkTrack')));
   check('live: Trailer action only where a YouTube trailer exists', await page.evaluate(() => [].every.call(document.querySelectorAll('#pkTrack .card'), c => {
     const t = c.querySelector('[data-a="trailer"]'); const i = +c.getAttribute('data-i'); const it = RH_debug.picks().picks[i].item; return !!t === !!it.trailer; })));
-  check('live: last-good result cached', await page.evaluate(() => !!JSON.parse(localStorage.getItem('rh.dsc.live') || 'null')));
+  check('platform result cached (rh.dsc.plat.netflix)', await page.evaluate(() => !!JSON.parse(localStorage.getItem('rh.dsc.plat.netflix') || 'null')));
+  await page.waitForTimeout(2500);
+  check('neighbouring services prefetched (HBO Max + Disney+)', await page.evaluate(() => !!localStorage.getItem('rh.dsc.plat.hbomax') && !!localStorage.getItem('rh.dsc.plat.disney')));
+  check('platform header visible: chip + name + 7 dots', await page.evaluate(() => getComputedStyle(document.getElementById('plat')).display !== 'none' &&
+    document.getElementById('platName').textContent === 'Netflix' && document.querySelectorAll('#platDots i').length === 7 && document.querySelectorAll('#platDots i.on').length === 1));
+  check('platform mode hides the Refresh pill', await page.evaluate(() => getComputedStyle(document.getElementById('refresh')).display === 'none'));
+  await key('ArrowUp', 3); s = await st(); check('Up from dock -> picks -> tab -> platform header', s.kind === 'plat', s);
+  await key('ArrowRight'); await page.waitForTimeout(60);
+  const ghost = await page.evaluate(() => { const g = document.querySelector('#pkStage .pk-ghost'); if (!g) return null; const cs = getComputedStyle(g); return { tp: cs.transitionProperty, dur: cs.transitionDuration }; });
+  check('carousel: old page slides out as a transform/opacity-only ghost (~300 ms)', !!ghost && ghost.tp.split(',').every(x => /transform|opacity/.test(x)) &&
+    ghost.dur.split(',').every(d => parseFloat(d) >= 0.2 && parseFloat(d) <= 0.35), ghost);
+  await page.waitForTimeout(500);
+  s = await st(); check('Right on the header -> HBO Max page (focus stays on header)', (await page.evaluate(() => RH_debug.platform)) === 'hbomax' && s.kind === 'plat', s);
+  check('ghost removed after the slide', await page.evaluate(() => !document.querySelector('#pkStage .pk-ghost')));
+  check('no backdrop-filter on carousel pieces', await page.evaluate(() => [].every.call(document.querySelectorAll('#plat, #pkStage, #pkTrack .card'), e => !/blur/.test(getComputedStyle(e).backdropFilter || ''))));
+  p = await picks(); check('HBO Max has no shows in fixtures -> honest empty state, no cards', p.cards === 0 && /HBO Max/.test(await page.textContent('#picks')), p);
+  await key('ArrowLeft'); await page.waitForTimeout(400); check('Left -> back to Netflix', (await page.evaluate(() => RH_debug.platform)) === 'netflix');
+  await key('ArrowLeft'); await page.waitForTimeout(400); check('Left wraps to the last service (Disney+)', (await page.evaluate(() => RH_debug.platform)) === 'disney');
+  await tvKey(427); await page.waitForTimeout(400); check('ChannelUp (427) -> next service (Netflix)', (await page.evaluate(() => RH_debug.platform)) === 'netflix');
+  await key('ArrowDown'); await key('ArrowDown'); s = await st(); check('Down from header -> tabs -> picks', s.kind === 'picks', s);
+  await page.evaluate(() => RH_debug.setFocus(RH_debug.rowIndex('picks'), RH_debug.picks().picks.length - 1));
+  await key('ArrowRight'); await page.waitForTimeout(500); check('Right past the last card slides to the next service', (await page.evaluate(() => RH_debug.platform)) === 'hbomax');
+  await fresh(httpBase, '?still=1&tab=movie&plat=disney'); await page.waitForTimeout(1500); p = await picks();
+  check('?plat=disney Movies: Picnic', (await page.evaluate(() => RH_debug.platform)) === 'disney' && p.titles.join() === 'FIXTURE · Picnic', p);
+  check('Rotten Tomatoes badge (tomato + 92%) shown only where OMDb has an RT score', await page.evaluate(() => { const r = document.querySelector('#pkTrack .rate.rt');
+    return !!r && /92%/.test(r.textContent) && !!r.querySelector('svg'); }));
+  check('Open in Disney+ launches the service', /Open in Disney\+/.test(await page.textContent('#pkTrack')));
   // stale cache -> paints cached instantly, refreshes in background (slow network), applies when Discover closes
-  await page.evaluate(() => { const c = JSON.parse(localStorage.getItem('rh.dsc.live')); c.fetchedAt = '2026-10-01T00:00:00Z'; localStorage.setItem('rh.dsc.live', JSON.stringify(c)); });
+  await fresh(httpBase, '?still=1'); await page.waitForTimeout(1500);
+  await page.evaluate(() => { const c = JSON.parse(localStorage.getItem('rh.dsc.plat.netflix')); c.fetchedAt = '2026-10-01T00:00:00Z'; localStorage.setItem('rh.dsc.plat.netflix', JSON.stringify(c)); });
   gen.v = 2; fx.setDelay(700); await page.reload(); await page.waitForTimeout(250);
-  p = await picks(); check('stale cache paints instantly (before network returns)', p.mode === 'live' && p.cards === 3 && p.titles.every(t => !/ v2$/.test(t)), p);
+  p = await picks(); check('stale cache paints instantly (before network returns)', p.mode === 'live' && p.cards === 2 && p.titles.every(t => !/ v2$/.test(t)), p);
   await key('ArrowUp'); await page.waitForTimeout(3500); p = await picks();
   check('background refresh does not swap cards under focus', p.titles.every(t => !/ v2$/.test(t)), p);
   await key('Escape'); await page.waitForTimeout(100); p = await picks();
   check('refreshed picks applied once Discover closes', p.titles.some(t => / v2$/.test(t)), p);
-  fx.setDelay(0);
+  fx.setDelay(0); gen.v = 1;
   // network down + no cache -> snapshot
-  await page.route('https://api.themoviedb.org/**', r => r.abort()); await page.evaluate(() => localStorage.removeItem('rh.dsc.live'));
+  await page.route('https://api.themoviedb.org/**', r => r.abort()); await page.evaluate(() => Object.keys(localStorage).filter(k => /^rh\.dsc\.(live|plat\.)/.test(k)).forEach(k => localStorage.removeItem(k)));
   await page.reload(); await page.waitForTimeout(800); p = await picks();
   check('TMDB down, no cache -> dated IMDb snapshot', p.mode === 'snapshot' && p.cards === 3, p);
   await page.unroute('https://api.themoviedb.org/**');
+  await page.unroute('https://www.omdbapi.com/**'); await page.unroute('https://api.trakt.tv/**'); fx = await fixtures(page, gen);   // fixtures back for section 5
 
   /* ---------- 5. Trakt status + device flow (client id only, no secret) + history ---------- */
   await fresh(httpBase, '?still=1'); await page.waitForTimeout(600);
   check('Trakt not linked: no Resume row, one-line status "Trakt not linked"', await page.evaluate(() => document.querySelectorAll('#cwTrack .cwi').length === 0) &&
     /^Trakt not linked/.test(await page.textContent('#tstat')), await page.textContent('#tstat'));
   await key('ArrowUp'); s = await st(); check('status line does not steal first focus (picks first)', s.kind === 'picks', s);
-  await key('ArrowUp'); await key('ArrowUp'); s = await st(); check('Up reaches the Trakt status ("Link")', s.kind === 'trakt', s);
+  await key('ArrowUp', 3); s = await st(); check('Up reaches the Trakt status ("Link") via tabs + platform header', s.kind === 'trakt', s);
   await key('Enter'); await page.waitForTimeout(300);
   check('device flow shows code + activate URL in the status line', /trakt\.tv\/activate/.test(await page.textContent('#tstat')) && /AB12CD34/.test(await page.textContent('#tstat')), await page.textContent('#tstat'));
   await page.waitForTimeout(2600);
@@ -268,9 +312,9 @@ async function fixtures(page, gen) {
     await page.evaluate(() => document.querySelectorAll('#cwTrack .cwi').length === 0), await page.textContent('#tstat'));
   gen.empty = false;
   // watched show is excluded from picks
-  gen.watched = 105; await page.evaluate(() => { localStorage.removeItem('rh.dsc.live'); localStorage.removeItem('rh.dsc.last.tv'); localStorage.removeItem('rh.dsc.trakt'); });
-  await page.reload(); await page.waitForTimeout(1500); p = await picks();
-  check('show already watched on Trakt never picked', p.titles.indexOf('FIXTURE · Small Wins') < 0, p);
+  gen.watched = 107; await page.evaluate(() => { Object.keys(localStorage).filter(k => /^rh\.dsc\.(live|plat\.|hist|last\.|trakt)/.test(k)).forEach(k => localStorage.removeItem(k)); });
+  await page.reload(); await page.waitForTimeout(1800); p = await picks();
+  check('show already watched on Trakt never picked', p.titles.indexOf('FIXTURE · Brunch Club') < 0 && p.titles.indexOf('FIXTURE · Desk Jokes') >= 0, p);
   gen.watched = 0;
   // a Trakt app that refuses device sign-in without a secret
   gen.deny = true; gen.polls = 0; await fresh(httpBase, '?still=1'); await page.waitForTimeout(500);

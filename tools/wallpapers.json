@@ -86,16 +86,6 @@
   "focusY": 0.5
  },
  {
-  "id": "haleakala",
-  "caption": "Haleakalā sunrise, Maui, Hawaiʻi",
-  "photographer": "Mferbfriske",
-  "license": "CC BY-SA 2.0",
-  "licenseUrl": "https://creativecommons.org/licenses/by-sa/2.0/",
-  "source": "https://commons.wikimedia.org/wiki/File:Haleakala_Sunrise_Maui_Hawaii_Haleakala_National_Park_-_Flickr_-_Mferbfriske.jpg",
-  "commonsFile": "Haleakala Sunrise Maui Hawaii Haleakala National Park - Flickr - Mferbfriske.jpg",
-  "focusY": 0.45
- },
- {
   "id": "na-pali",
   "caption": "Nā Pali Coast, Kauaʻi, Hawaiʻi",
   "photographer": "dronepicr",
@@ -114,15 +104,5 @@
   "source": "https://commons.wikimedia.org/wiki/File:Wonder_Lake_View_(1a01b79f-2d27-44f5-86c0-7190ac168ea8).jpg",
   "commonsFile": "Wonder Lake View (1a01b79f-2d27-44f5-86c0-7190ac168ea8).jpg",
   "focusY": 0.45
- },
- {
-  "id": "napa",
-  "caption": "Vineyards, Napa Valley, California",
-  "photographer": "Brocken Inaglory",
-  "license": "CC BY-SA 3.0",
-  "licenseUrl": "https://creativecommons.org/licenses/by-sa/3.0/",
-  "source": "https://commons.wikimedia.org/wiki/File:Vineyards_in_Napa_Valley_7.jpg",
-  "commonsFile": "Vineyards in Napa Valley 7.jpg",
-  "focusY": 0.5
  }
 ]

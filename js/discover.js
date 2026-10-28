@@ -495,6 +495,146 @@
   /* how much Trakt history the linked account has: n >= 0, -1 not checked yet, -2 Trakt unreachable */
   function historyCount() { var c = jget('rh.dsc.cw', null); return c && typeof c.hist === 'number' ? c.hist : cwErr ? -2 : -1; }
 
+  /* ---------- Per-platform Top 3 (Discover carousel) ----------
+   * One page per streaming service (dock order, re-sorted by how often each app is opened here). For each service and
+   * tab: TMDB discover filtered to that service's US subscription catalogue (with_watch_providers + flatrate), light
+   * genres first, then IMDb rating + votes and the Rotten Tomatoes critics score (both via OMDb) decide the order.
+   * Cached per service in localStorage (rh.dsc.plat.<key>); stale after refreshHours; neighbours are prefetched. */
+  var PROV = {};                       // app key -> [TMDB provider ids]
+  (function () { var m = window.RH_TMDB_PROVIDERS || {}; Object.keys(m).forEach(function (id) { (PROV[m[id]] = PROV[m[id]] || []).push(id); }); })();
+  var platOrder = null;
+  function usage() { return jget('rh.usage', {}); }
+  function noteLaunch(key) { var u = usage(); u[key] = (u[key] || 0) + 1; jset('rh.usage', u); }
+  function platforms() {
+    if (platOrder) return platOrder;
+    var base = D.platforms || (CFG.dock.main || []).concat(CFG.dock.extra || []), u = usage();
+    var list = base.filter(function (k) { return !!PROV[k]; });
+    platOrder = list.map(function (k, i) { return { k: k, i: i, n: u[k] || 0 }; })
+      .sort(function (a, b) { return D.platformsByUsage === false ? a.i - b.i : (b.n - a.n) || (a.i - b.i); }).map(function (x) { return x.k; });
+    return platOrder;
+  }
+  function clamp01(x) { return x < 0 ? 0 : x > 1 ? 1 : x; }
+  /* quality 0..1: IMDb (votes-checked) blended with Rotten Tomatoes when OMDb has it; TMDB-only ratings count for less */
+  function quality(t) {
+    var q;
+    if (t.ratingSource === 'IMDb' && t.rating) {
+      q = clamp01((t.rating - 6) / 3);
+      if (t.ratingVotes != null) q *= t.ratingVotes < 500 ? 0.3 : t.ratingVotes < 2000 ? 0.6 : 1;
+    } else q = t.rating ? clamp01((t.rating - 6) / 3) * 0.5 : 0;
+    if (t.rt != null) q = 0.6 * q + 0.4 * clamp01((t.rt - 60) / 40);
+    return q;
+  }
+  function platScore(t, hist) {
+    var p = prefs(), g = t.genres || [], gs = 0, gn = 0, s = 3 * quality(t);
+    s += Math.max(0, 21 - (t.rank || 20)) / 20;                         // TMDB popularity on that service
+    s += has(g, ['Comedy']) ? 1 : 0; s += has(g, ['Family', 'Romance']) ? 0.4 : 0; s -= g[0] === 'Drama' ? 0.3 : 0;
+    g.forEach(function (x) { var v = p.genres[x]; if (v) { gs += v / (Math.abs(v) + 3); gn++; } });
+    if (gn) s += 0.6 * gs / gn;
+    if (shown()[t.id]) s -= 0.5;
+    if (hist && hist.recs && hist.recs.some(function (r) { return 'tmdb:' + r.kind + ':' + r.id === t.id; })) s += 1.2;
+    return s;
+  }
+  function okForHouse(t) {
+    var g = t.genres || [];
+    if (t.lang === 'ja' || has(g, NEVER)) return false;
+    if (has(g, ['Animation']) && !has(g, ['Family'])) return false;
+    if (BAD_LEAD.indexOf(g[0]) >= 0 && !has(g, ['Comedy'])) return false;
+    return true;
+  }
+  var HIST_KEY = 'rh.dsc.hist';
+  var histP = null;
+  var histTok = null;
+  function history() {                 // Trakt watched set, cached 6 h (shared by all platform pages)
+    var tok = accessToken() || '';
+    if (histP && histTok === tok) return histP;  // re-read once Trakt gets linked/unlinked
+    histTok = tok;
+    var c = jget(HIST_KEY, null);
+    if (c && Date.now() - c.t < 6 * 36e5) return (histP = Promise.resolve(c.h));
+    histP = traktHistory().then(function (h) { if (hasTrakt() && (accessToken() || K.traktUsername)) jset(HIST_KEY, { t: Date.now(), h: h }); return h; },
+      function () { return { watched: {}, shows: {}, recs: [] }; });
+    return histP;
+  }
+  function platKey(k) { return 'rh.dsc.plat.' + k; }
+  function fetchPlatform(key) {
+    var ids = PROV[key]; if (!ids) return Promise.reject(new Error('no provider'));
+    function soft(path) { return tmdb(path).catch(function () { return { results: [] }; }); }
+    var q = '&language=en-US&watch_region=' + (D.region || 'US') + '&with_watch_monetization_types=flatrate&with_watch_providers=' + ids.join('|') +
+      '&sort_by=popularity.desc&include_adult=false&without_genres=';
+    var tvNo = q + '16,80,99,10763,10764,10767,10768', mvNo = q + '16,27,53,80,99,10752';
+    return Promise.all([soft('/discover/tv?with_genres=35&vote_count.gte=60' + tvNo), soft('/discover/tv?vote_count.gte=150' + tvNo),
+      soft('/discover/movie?with_genres=35&vote_count.gte=250' + mvNo), soft('/discover/movie?vote_count.gte=500' + mvNo), history()]).then(function (r) {
+      var hist = r[4] || {}, seen = {}, byKind = { tv: [], movie: [] };
+      function add(x, kind, i) {
+        var id = 'tmdb:' + kind + ':' + x.id; if (seen[id] || (hist.watched || {})[id] || (hist.shows || {})[id]) return;
+        var c = { id: id, tmdbId: x.id, kind: kind, title: x.title || x.name, year: parseInt((x.release_date || x.first_air_date || '').slice(0, 4), 10) || null,
+          rank: i + 1, lang: x.original_language || null, genres: (x.genre_ids || []).map(function (g) { return GENRES[g]; }).filter(Boolean),
+          plot: x.overview || null, poster: x.poster_path ? 'https://image.tmdb.org/t/p/w342' + x.poster_path : null, app: key, popularity: x.popularity || 0,
+          rating: x.vote_count >= 50 ? Math.round(x.vote_average * 10) / 10 : null, ratingSource: x.vote_count >= 50 ? 'TMDB' : null, ratingVotes: null, rt: null };
+        if (!okForHouse(c)) return;
+        seen[id] = c; byKind[kind].push(c);
+      }
+      [[0, 'tv'], [1, 'tv'], [2, 'movie'], [3, 'movie']].forEach(function (p) { ((r[p[0]] || {}).results || []).forEach(function (x, i) { add(x, p[1], i); }); });
+      var n = D.platformLookups || 8, todo = [];
+      ['tv', 'movie'].forEach(function (k) {
+        todo = todo.concat(byKind[k].sort(function (a, b) { return (has(b.genres, ['Comedy']) ? 1 : 0) - (has(a.genres, ['Comedy']) ? 1 : 0) || a.rank - b.rank; }).slice(0, n));
+      });
+      return Promise.all(todo.map(function (c) {
+        return tmdb('/' + c.kind + '/' + c.tmdbId + '?language=en-US&append_to_response=external_ids,videos').then(function (d) {
+          if (d.genres && d.genres.length) c.genres = d.genres.map(function (g) { return g.name; });
+          c.lang = d.original_language || c.lang;
+          if (!c.poster && d.poster_path) c.poster = 'https://image.tmdb.org/t/p/w342' + d.poster_path;
+          c.runtimeMin = c.kind === 'movie' ? d.runtime || null : ((d.episode_run_time || [])[0] || (d.last_episode_to_air || {}).runtime || null);
+          c.seasons = c.kind === 'tv' ? d.number_of_seasons || null : null;
+          c.imdbId = d.imdb_id || (d.external_ids || {}).imdb_id || null;
+          var v = ((d.videos || {}).results || []).filter(function (v) { return v.site === 'YouTube' && (v.type === 'Trailer' || v.type === 'Teaser'); })[0];
+          c.trailer = v ? v.key : null;
+          if (!okForHouse(c)) return null;
+          if (!K.omdbApiKey || !c.imdbId) return c;
+          return getJSON('https://www.omdbapi.com/?i=' + c.imdbId + '&apikey=' + encodeURIComponent(K.omdbApiKey)).then(function (o) {
+            var ir = parseFloat(o.imdbRating);
+            if (!isNaN(ir)) { c.rating = ir; c.ratingSource = 'IMDb'; c.ratingVotes = parseInt(String(o.imdbVotes || '').replace(/,/g, ''), 10) || null; }
+            (o.Ratings || []).forEach(function (x) { if (x.Source === 'Rotten Tomatoes') { var p = parseInt(x.Value, 10); if (!isNaN(p)) c.rt = p; } });
+            return c;
+          }, function () { return c; });
+        }, function () { return null; });
+      })).then(function (list) {
+        list = list.filter(Boolean);
+        var res = { v: 1, key: key, fetchedAt: new Date().toISOString(), items: list, omdb: !!K.omdbApiKey, watched: hist.watched || {}, shows: hist.shows || {} };
+        if (list.length) jset(platKey(key), res);
+        return res;
+      });
+    });
+  }
+  var platInflight = {};
+  function refreshPlatform(key) {
+    if (!platInflight[key]) platInflight[key] = fetchPlatform(key).then(function (p) { delete platInflight[key]; return p.items.length ? p : null; },
+      function () { delete platInflight[key]; return null; });
+    return platInflight[key];
+  }
+  function platStale(c) { return !c || c.v !== 1 || Date.now() - Date.parse(c.fetchedAt) > (D.platformRefreshHours || D.refreshHours || 12) * 36e5; }
+  function rankPlatform(pool, kind) {
+    var gone = dismissed();
+    return pool.items.filter(function (t) { return t.kind === kind && !gone[t.id] && !(pool.watched || {})[t.id] && !(pool.shows || {})[t.id] && okForHouse(t); })
+      .map(function (t) { return { t: t, s: platScore(t) }; })
+      .sort(function (a, b) { return b.s - a.s; }).slice(0, 3)
+      .map(function (x, i) { return { slot: 'top', label: '#' + (i + 1), item: x.t }; });
+  }
+  function platformPicks(key, kind, cb, opt) {
+    opt = opt || {};
+    function deliver(p, bg) {
+      var out = rankPlatform(p, kind);
+      if (out.length) setTimeout(function () { cacheArt(out.map(function (o) { return o.item.poster; })); }, 1500);
+      cb({ platform: key, kind: kind, mode: 'live', platformMode: true, fetchedAt: p.fetchedAt, omdb: p.omdb, picks: out, background: !!bg });
+    }
+    var c = jget(platKey(key), null);
+    if (c && c.v === 1 && c.items.length) deliver(c);
+    if (platStale(c) || opt.force) refreshPlatform(key).then(function (p) {
+      if (p) deliver(p, !!c);
+      else if (!c || !c.items.length) cb({ platform: key, kind: kind, mode: 'none', platformMode: true, failed: true, picks: [] });
+    });
+  }
+  function prefetchPlatform(key) { if (PROV[key] && hasTmdb() && platStale(jget(platKey(key), null))) refreshPlatform(key); }
+
   /* ---------- public ---------- */
   var refreshing = null;
   function liveStale(c) { return !c || c.v !== 2 || Date.now() - Date.parse(c.fetchedAt) > (D.refreshHours || 12) * 36e5; }
@@ -539,6 +679,12 @@
     /* Called when picks are actually on screen (Discover open), so painting in the background doesn't burn titles. */
     seen: function (ids) { if (ids && ids.length) markShown(ids); },
     hasLiveKeys: hasTmdb,
+    /* per-platform carousel (live keys only): ordered app keys, Top 3 per tab, neighbour prefetch, launch counting */
+    platforms: function () { return hasTmdb() && !MOCK && D.platformPages !== false ? platforms() : []; },
+    platformPicks: platformPicks,
+    prefetchPlatform: prefetchPlatform,
+    noteLaunch: noteLaunch,
+    _quality: quality,
     trakt: traktAuth,
     continueWatching: continueWatching,
     dismiss: dismiss,                 // 'Not Interested': never shown again (local), nudges genre weights down a little

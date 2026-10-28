@@ -6,7 +6,7 @@
 
   python3 tools/build-wallpapers.py --blur-only # only regenerate the baked-glass copies + js/wallpapers.js
 
-Outputs: images/wallpapers/<id>.jpg (1920x1080, progressive, <=350 KB),
+Outputs: images/wallpapers/<id>.jpg (3840x2160 true 4K, progressive, quality >= 80, never softened),
          images/wallpapers/blur/<id>.jpg (480x270 "baked glass": pre-blurred, saturated, dimmed; shown
          scaled up inside the dock/clock/panel instead of a live backdrop-filter), js/wallpapers.js, CREDITS.md.
 Originals are cached in /tmp/rh-wallpapers (not bundled).
@@ -16,12 +16,18 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 MAN = json.load(open(os.path.join(ROOT, "tools", "wallpapers.json"), encoding="utf-8"))
 OUT = os.path.join(ROOT, "images", "wallpapers"); CACHE = "/tmp/rh-wallpapers"
 UA = {"User-Agent": "GlassHomeLauncher/1.0 (TV wallpaper build; credits in CREDITS.md)"}
-MAX_BYTES = 350_000
+OUT_W, OUT_H = 3840, 2160          # true 4K UHD; originals narrower than 3840 px are rejected
+MAX_BYTES = 2_400_000
 
 def fetch(w):
-    p = os.path.join(CACHE, w["id"] + ".orig")
+    p = os.path.join(CACHE, w["id"] + ".4k.orig")
     if not os.path.exists(p):
-        u = "https://commons.wikimedia.org/wiki/Special:FilePath/" + urllib.parse.quote(w["commonsFile"]) + "?width=3200"
+        q = "https://commons.wikimedia.org/w/api.php?action=query&format=json&prop=imageinfo&iiprop=size|url&titles=" + urllib.parse.quote("File:" + w["commonsFile"])
+        ii = list(json.load(urllib.request.urlopen(urllib.request.Request(q, headers=UA), timeout=60))["query"]["pages"].values())[0]["imageinfo"][0]
+        if ii["width"] < OUT_W or ii["height"] < OUT_H: sys.exit("%s: original %dx%d is below 4K" % (w["id"], ii["width"], ii["height"]))
+        want = min(ii["width"], max(OUT_W, -(-OUT_H * ii["width"] // ii["height"]) + 8))   # wide enough that the 16:9 crop is >= 3840x2160
+        u = "https://commons.wikimedia.org/wiki/Special:FilePath/" + urllib.parse.quote(w["commonsFile"]) + "?width=" + str(want)
+        if want > OUT_W: u = ii["url"]   # Commons snaps thumbnails to standard widths; wide panoramas need the original file
         data = urllib.request.urlopen(urllib.request.Request(u, headers=UA), timeout=120).read()
         open(p, "wb").write(data); time.sleep(1)
     return p
@@ -29,13 +35,14 @@ def fetch(w):
 def process(w, src):
     from PIL import Image, ImageOps
     im = ImageOps.exif_transpose(Image.open(src)).convert("RGB")
-    im = ImageOps.fit(im, (1920, 1080), Image.LANCZOS, centering=(.5, w.get("focusY", .5)))
+    if im.width < OUT_W or im.height < OUT_H: sys.exit("%s: source %dx%d is below 4K (%dx%d); pick another photo" % (w["id"], im.width, im.height, OUT_W, OUT_H))
+    im = ImageOps.fit(im, (OUT_W, OUT_H), Image.LANCZOS, centering=(.5, w.get("focusY", .5)))
     from PIL import ImageFilter
     # Very detailed photos (forests, fjords) would need low JPEG quality to fit the budget and get blocky.
     # A barely visible softening (it sits behind glass and a scrim anyway) keeps quality >= 76 instead.
-    for radius in (0, .45, .7, 1.0, 1.3):
+    for radius in (0,):                     # 4K set: never soften; quality steps down only if needed
         src_im = im if not radius else im.filter(ImageFilter.GaussianBlur(radius))
-        for q in range(90, 71, -2):
+        for q in range(90, 79, -2):
             b = io.BytesIO(); src_im.save(b, "JPEG", quality=q, optimize=True, progressive=True)
             if b.tell() <= MAX_BYTES: break
         if b.tell() <= MAX_BYTES: break
@@ -70,7 +77,7 @@ def emit():
     js[-1] = js[-1].rstrip(","); js.append("];")
     open(os.path.join(ROOT, "js", "wallpapers.js"), "w", encoding="utf-8").write("\n".join(js) + "\n")
     md = ["# Wallpaper credits", "",
-          "All wallpapers are bundled in `images/wallpapers/` (cropped to 16:9, resized to 1920×1080, JPEG-recompressed, and on a few very detailed photos lightly softened to fit the size budget).",
+          "All wallpapers are bundled in `images/wallpapers/` (cropped to 16:9, resized to 3840×2160 (4K UHD) from originals at least 3840 px wide, JPEG-recompressed, never softened).",
           "They come from Wikimedia Commons under free licenses that allow redistribution, including commercial use, with attribution",
           "(CC0 needs none). Share-alike (BY-SA) images: the resized copies here are distributed under the same license as the original.",
           "The launcher also shows each photographer and license on screen next to the location caption.", "",
@@ -79,7 +86,7 @@ def emit():
         md.append("| %d | `%s.jpg` | %s | %s | [%s](%s) | [Commons](%s) |" % (i, w["id"], w["caption"], w["photographer"],
                   w["license"], w["licenseUrl"], w["source"]))
     md += ["", "To add or replace a wallpaper, edit `tools/wallpapers.json` (any Commons file with a CC0/CC BY/CC BY-SA license) and run",
-           "`python3 tools/build-wallpapers.py`, or drop your own 1920×1080 JPEGs in `images/wallpapers/` and list them in `js/wallpapers.js`."]
+           "`python3 tools/build-wallpapers.py`, or drop your own 3840×2160 JPEGs in `images/wallpapers/` and list them in `js/wallpapers.js`."]
     open(os.path.join(ROOT, "CREDITS.md"), "w", encoding="utf-8").write("\n".join(md) + "\n")
     print("wrote js/wallpapers.js and CREDITS.md")
 

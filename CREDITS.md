@@ -1,6 +1,6 @@
 # Wallpaper credits
 
-All wallpapers are bundled in `images/wallpapers/` (cropped to 16:9, resized to 1920×1080, JPEG-recompressed, and on a few very detailed photos lightly softened to fit the size budget).
+All wallpapers are bundled in `images/wallpapers/` (cropped to 16:9, resized to 3840×2160 (4K UHD) from originals at least 3840 px wide, JPEG-recompressed, never softened).
 They come from Wikimedia Commons under free licenses that allow redistribution, including commercial use, with attribution
 (CC0 needs none). Share-alike (BY-SA) images: the resized copies here are distributed under the same license as the original.
 The launcher also shows each photographer and license on screen next to the location caption.
@@ -15,10 +15,8 @@ The launcher also shows each photographer and license on screen next to the loca
 | 6 | `santorini.jpg` | Oia, Santorini, Greece | C messier | [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/) | [Commons](https://commons.wikimedia.org/wiki/File:%CE%9F%CE%AF%CE%B1_1121.jpg) |
 | 7 | `yosemite.jpg` | Tunnel View, Yosemite National Park, California | Diliff | [CC BY-SA 3.0](https://creativecommons.org/licenses/by-sa/3.0/) | [Commons](https://commons.wikimedia.org/wiki/File:Tunnel_View,_Yosemite_Valley,_Yosemite_NP_-_Diliff.jpg) |
 | 8 | `yellowstone.jpg` | Grand Prismatic Spring, Yellowstone, Wyoming | Carsten Steger | [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/) | [Commons](https://commons.wikimedia.org/wiki/File:Aerial_image_of_Grand_Prismatic_Spring_(view_from_the_south).jpg) |
-| 9 | `haleakala.jpg` | Haleakalā sunrise, Maui, Hawaiʻi | Mferbfriske | [CC BY-SA 2.0](https://creativecommons.org/licenses/by-sa/2.0/) | [Commons](https://commons.wikimedia.org/wiki/File:Haleakala_Sunrise_Maui_Hawaii_Haleakala_National_Park_-_Flickr_-_Mferbfriske.jpg) |
-| 10 | `na-pali.jpg` | Nā Pali Coast, Kauaʻi, Hawaiʻi | dronepicr | [CC BY 2.0](https://creativecommons.org/licenses/by/2.0/) | [Commons](https://commons.wikimedia.org/wiki/File:Na_Pali_Coast_Kauai_Hawaii_(32406276598).jpg) |
-| 11 | `denali.jpg` | Wonder Lake, Denali National Park, Alaska | NPS / Mary Lewandowski | [Public domain](https://www.nps.gov/aboutus/disclaimer.htm) | [Commons](https://commons.wikimedia.org/wiki/File:Wonder_Lake_View_(1a01b79f-2d27-44f5-86c0-7190ac168ea8).jpg) |
-| 12 | `napa.jpg` | Vineyards, Napa Valley, California | Brocken Inaglory | [CC BY-SA 3.0](https://creativecommons.org/licenses/by-sa/3.0/) | [Commons](https://commons.wikimedia.org/wiki/File:Vineyards_in_Napa_Valley_7.jpg) |
+| 9 | `na-pali.jpg` | Nā Pali Coast, Kauaʻi, Hawaiʻi | dronepicr | [CC BY 2.0](https://creativecommons.org/licenses/by/2.0/) | [Commons](https://commons.wikimedia.org/wiki/File:Na_Pali_Coast_Kauai_Hawaii_(32406276598).jpg) |
+| 10 | `denali.jpg` | Wonder Lake, Denali National Park, Alaska | NPS / Mary Lewandowski | [Public domain](https://www.nps.gov/aboutus/disclaimer.htm) | [Commons](https://commons.wikimedia.org/wiki/File:Wonder_Lake_View_(1a01b79f-2d27-44f5-86c0-7190ac168ea8).jpg) |
 
 To add or replace a wallpaper, edit `tools/wallpapers.json` (any Commons file with a CC0/CC BY/CC BY-SA license) and run
-`python3 tools/build-wallpapers.py`, or drop your own 1920×1080 JPEGs in `images/wallpapers/` and list them in `js/wallpapers.js`.
+`python3 tools/build-wallpapers.py`, or drop your own 3840×2160 JPEGs in `images/wallpapers/` and list them in `js/wallpapers.js`.
