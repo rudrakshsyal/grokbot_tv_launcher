@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=1920, height=1080, initial-scale=1, user-scalable=no">
+  <link rel="icon" href="icon.png">
+  <title>Home</title>
+  <link rel="stylesheet" href="css/style.css"><!--RH:CSS-->
+</head>
+<body class="blur-baked">
+  <div id="stage">
+    <div class="ambient" aria-hidden="true">
+      <div class="blob b1"></div><div class="blob b2"></div><div class="blob b3"></div>
+      <div class="wps"><img class="wp" id="wpA" alt=""><img class="wp" id="wpB" alt=""></div>
+      <script>/* start downloading the wallpaper the last session queued up, before any JS file has loaded */
+        (function () { try { if (/[?&]wp=/.test(location.search)) return; var e = localStorage.getItem('rh.wp.early'); if (!e) return;
+          var p = e.split('|'); document.getElementById('wpB').src = p[0]; if (p[1]) (new Image()).src = p[1]; } catch (x) {} })();</script>
+      <div class="scrim"></div>
+      <div class="vignette"></div><div class="grain"></div>
+    </div>
+
+    <header class="topbar">
+      <div class="greet" id="greet"></div>
+      <div class="wpcap" id="wpcap"><svg class="wpcap-pin" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path fill="currentColor" d="M12 2a7 7 0 0 0-7 7c0 5.2 7 13 7 13s7-7.8 7-13a7 7 0 0 0-7-7zm0 9.6A2.6 2.6 0 1 1 12 6.4a2.6 2.6 0 0 1 0 5.2z"/></svg><span class="wpcap-place"></span><span class="wpinfo" id="wpinfo" aria-label="Photo credit">i</span><span class="wpcap-credit"></span></div>
+      <div class="dsc-sub" id="dscSub"></div>
+      <div class="clock glass-chip"><div class="time" id="time"></div><div class="date" id="date"></div></div>
+    </header>
+
+    <section class="amb" id="amb" aria-label="Clock and weather">
+      <div class="amb-time" id="ambTime"></div>
+      <div class="amb-date" id="ambDate"></div>
+      <div class="wx" id="wx"></div>
+    </section>
+
+    <section class="discover" id="discover" aria-label="Discover">
+      <div class="tstat" id="tstat"></div>
+      <div class="cw empty" id="cw"><div class="sec-h">Resume Watching<span class="src" id="cwSrc"></span></div><div class="cw-track" id="cwTrack"></div></div>
+      <div class="picks empty" id="picks"><div class="sec-h"><span class="seg" id="seg"><span class="tab" id="tabMovie" data-k="movie">Movies</span><span class="tab" id="tabTv" data-k="tv">Shows</span></span><span class="pill" id="refresh">&#x21bb; Refresh</span><span class="src" id="pkSrc"></span></div><div class="pk-track" id="pkTrack"></div></div>
+    </section>
+
+    <main id="rows"></main>
+    <div class="hint" id="hint"></div>
+    <div class="dim" id="dim"></div>
+
+    <div id="toast" class="toast glass-chip"></div>
+    <div id="fps" class="fps"></div>
+  </div>
+
+  <script defer src="js/config.js"></script>
+  <script defer src="js/apps.js"></script>
+  <script defer src="js/logos.js"></script>
+  <script defer src="js/tizen-shim.js"></script>
+  <script defer src="js/wallpapers.js"></script>
+  <script defer src="js/wallpaper.js"></script>
+  <script defer src="data/weekly.embed.js"></script>
+  <script defer src="js/weather.js"></script>
+  <script defer src="js/discover.js"></script>
+  <script defer src="js/app.js"></script>
+</body>
+</html>

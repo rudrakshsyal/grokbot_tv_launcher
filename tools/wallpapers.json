@@ -1,0 +1,128 @@
+[
+ {
+  "id": "moraine-lake",
+  "caption": "Moraine Lake, Banff, Canada",
+  "photographer": "Chensiyuan",
+  "license": "CC BY-SA 4.0",
+  "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+  "source": "https://commons.wikimedia.org/wiki/File:1_moraine_lake_pano_2019.jpg",
+  "commonsFile": "1 moraine lake pano 2019.jpg",
+  "original": "14949x7983",
+  "focusY": 0.5
+ },
+ {
+  "id": "matterhorn",
+  "caption": "Matterhorn & Riffelsee, Zermatt, Switzerland",
+  "photographer": "Deralpinbergsteiger",
+  "license": "CC BY-SA 4.0",
+  "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+  "source": "https://commons.wikimedia.org/wiki/File:Matterhorn_reflection_in_the_Riffelsee_at_sunrise.jpg",
+  "commonsFile": "Matterhorn reflection in the Riffelsee at sunrise.jpg",
+  "original": "6000x4000",
+  "focusY": 0.55
+ },
+ {
+  "id": "arashiyama",
+  "caption": "Togetsu-kyō Bridge, Arashiyama, Kyoto, Japan",
+  "photographer": "Basile Morin",
+  "license": "CC BY-SA 4.0",
+  "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+  "source": "https://commons.wikimedia.org/wiki/File:Togetsu-kyo_bridge_at_dusk,_Kyoto,_Japan.jpg",
+  "commonsFile": "Togetsu-kyo bridge at dusk, Kyoto, Japan.jpg",
+  "original": "5863x3909",
+  "focusY": 0.55
+ },
+ {
+  "id": "maldives",
+  "caption": "Dhaalu Atoll, Maldives",
+  "photographer": "Ishan (@seefromthesky)",
+  "license": "CC0",
+  "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
+  "source": "https://commons.wikimedia.org/wiki/File:An_island_in_the_beautiful_atoll_of_Dhaalu_(Unsplash).jpg",
+  "commonsFile": "An island in the beautiful atoll of Dhaalu (Unsplash).jpg",
+  "original": "3992x2242",
+  "focusY": 0.5
+ },
+ {
+  "id": "geiranger",
+  "caption": "Geirangerfjord, Norway",
+  "photographer": "Diego Delso",
+  "license": "CC BY-SA 4.0",
+  "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+  "source": "https://commons.wikimedia.org/wiki/File:Fiordo_de_Geiranger_desde_Flydalsjuvet,_Noruega,_2019-09-07,_DD_59.jpg",
+  "commonsFile": "Fiordo de Geiranger desde Flydalsjuvet, Noruega, 2019-09-07, DD 59.jpg",
+  "original": "7580x5064",
+  "focusY": 0.45
+ },
+ {
+  "id": "santorini",
+  "caption": "Oia, Santorini, Greece",
+  "photographer": "C messier",
+  "license": "CC BY-SA 4.0",
+  "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+  "source": "https://commons.wikimedia.org/wiki/File:%CE%9F%CE%AF%CE%B1_1121.jpg",
+  "commonsFile": "Οία 1121.jpg",
+  "original": "4547x3306",
+  "focusY": 0.55
+ },
+ {
+  "id": "yosemite",
+  "caption": "Tunnel View, Yosemite National Park, California",
+  "photographer": "Diliff",
+  "license": "CC BY-SA 3.0",
+  "licenseUrl": "https://creativecommons.org/licenses/by-sa/3.0/",
+  "source": "https://commons.wikimedia.org/wiki/File:Tunnel_View,_Yosemite_Valley,_Yosemite_NP_-_Diliff.jpg",
+  "commonsFile": "Tunnel View, Yosemite Valley, Yosemite NP - Diliff.jpg",
+  "focusY": 0.55
+ },
+ {
+  "id": "yellowstone",
+  "caption": "Grand Prismatic Spring, Yellowstone, Wyoming",
+  "photographer": "Carsten Steger",
+  "license": "CC BY-SA 4.0",
+  "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0/",
+  "source": "https://commons.wikimedia.org/wiki/File:Aerial_image_of_Grand_Prismatic_Spring_(view_from_the_south).jpg",
+  "commonsFile": "Aerial image of Grand Prismatic Spring (view from the south).jpg",
+  "focusY": 0.5
+ },
+ {
+  "id": "haleakala",
+  "caption": "Haleakalā sunrise, Maui, Hawaiʻi",
+  "photographer": "Mferbfriske",
+  "license": "CC BY-SA 2.0",
+  "licenseUrl": "https://creativecommons.org/licenses/by-sa/2.0/",
+  "source": "https://commons.wikimedia.org/wiki/File:Haleakala_Sunrise_Maui_Hawaii_Haleakala_National_Park_-_Flickr_-_Mferbfriske.jpg",
+  "commonsFile": "Haleakala Sunrise Maui Hawaii Haleakala National Park - Flickr - Mferbfriske.jpg",
+  "focusY": 0.45
+ },
+ {
+  "id": "na-pali",
+  "caption": "Nā Pali Coast, Kauaʻi, Hawaiʻi",
+  "photographer": "dronepicr",
+  "license": "CC BY 2.0",
+  "licenseUrl": "https://creativecommons.org/licenses/by/2.0/",
+  "source": "https://commons.wikimedia.org/wiki/File:Na_Pali_Coast_Kauai_Hawaii_(32406276598).jpg",
+  "commonsFile": "Na Pali Coast Kauai Hawaii (32406276598).jpg",
+  "focusY": 0.5
+ },
+ {
+  "id": "denali",
+  "caption": "Wonder Lake, Denali National Park, Alaska",
+  "photographer": "NPS / Mary Lewandowski",
+  "license": "Public domain",
+  "licenseUrl": "https://www.nps.gov/aboutus/disclaimer.htm",
+  "source": "https://commons.wikimedia.org/wiki/File:Wonder_Lake_View_(1a01b79f-2d27-44f5-86c0-7190ac168ea8).jpg",
+  "commonsFile": "Wonder Lake View (1a01b79f-2d27-44f5-86c0-7190ac168ea8).jpg",
+  "focusY": 0.45
+ },
+ {
+  "id": "napa",
+  "caption": "Vineyards, Napa Valley, California",
+  "photographer": "Brocken Inaglory",
+  "license": "CC BY-SA 3.0",
+  "licenseUrl": "https://creativecommons.org/licenses/by-sa/3.0/",
+  "source": "https://commons.wikimedia.org/wiki/File:Vineyards_in_Napa_Valley_7.jpg",
+  "commonsFile": "Vineyards in Napa Valley 7.jpg",
+  "focusY": 0.5
+ }
+]
