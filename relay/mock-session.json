@@ -1,0 +1,205 @@
+{
+ "query": "Something funny under 2 hours on Netflix tonight",
+ "recordedAt": "2026-10-29T04:16:55.104Z",
+ "events": [
+  {
+   "type": "listening",
+   "dt": 300
+  },
+  {
+   "type": "transcript",
+   "text": "Something",
+   "final": false,
+   "dt": 180
+  },
+  {
+   "type": "transcript",
+   "text": "Something funny",
+   "final": false,
+   "dt": 180
+  },
+  {
+   "type": "transcript",
+   "text": "Something funny under",
+   "final": false,
+   "dt": 180
+  },
+  {
+   "type": "transcript",
+   "text": "Something funny under 2",
+   "final": false,
+   "dt": 180
+  },
+  {
+   "type": "transcript",
+   "text": "Something funny under 2 hours",
+   "final": false,
+   "dt": 180
+  },
+  {
+   "type": "transcript",
+   "text": "Something funny under 2 hours on",
+   "final": false,
+   "dt": 180
+  },
+  {
+   "type": "transcript",
+   "text": "Something funny under 2 hours on Netflix",
+   "final": false,
+   "dt": 180
+  },
+  {
+   "type": "transcript",
+   "text": "Something funny under 2 hours on Netflix tonight",
+   "final": false,
+   "dt": 180
+  },
+  {
+   "type": "transcript",
+   "text": "Something funny under 2 hours on Netflix tonight",
+   "final": true,
+   "dt": 0
+  },
+  {
+   "type": "step",
+   "id": 1,
+   "phase": "start",
+   "label": "Heard you",
+   "dt": 0
+  },
+  {
+   "type": "step",
+   "id": 1,
+   "phase": "end",
+   "label": "Heard you",
+   "state": "ok",
+   "detail": "“Something funny under 2 hours on Netflix tonight” · 8 words · 2.4 s of speech",
+   "ms": 0,
+   "dt": 0
+  },
+  {
+   "type": "step",
+   "id": 2,
+   "phase": "start",
+   "label": "Understood",
+   "dt": 4
+  },
+  {
+   "type": "step",
+   "id": 2,
+   "phase": "end",
+   "label": "Understood",
+   "state": "ok",
+   "detail": "genre: comedy · movies · runtime < 120 min · service: Netflix (US)",
+   "ms": 0,
+   "dt": 0
+  },
+  {
+   "type": "step",
+   "id": 3,
+   "phase": "start",
+   "label": "Searching TMDB",
+   "dt": 0
+  },
+  {
+   "type": "step",
+   "id": 3,
+   "phase": "end",
+   "label": "Searching TMDB",
+   "state": "ok",
+   "detail": "Netflix catalogue · 417 comedies found",
+   "ms": 99,
+   "dt": 99
+  },
+  {
+   "type": "step",
+   "id": 4,
+   "phase": "start",
+   "label": "Checking runtimes & where to watch",
+   "dt": 0
+  },
+  {
+   "type": "step",
+   "id": 4,
+   "phase": "end",
+   "label": "Checking runtimes & where to watch",
+   "state": "ok",
+   "detail": "10 titles → 10 on Netflix",
+   "ms": 333,
+   "dt": 333
+  },
+  {
+   "type": "step",
+   "id": 5,
+   "phase": "start",
+   "label": "Checking IMDb & Rotten Tomatoes",
+   "dt": 0
+  },
+  {
+   "type": "step",
+   "id": 5,
+   "phase": "end",
+   "label": "Checking IMDb & Rotten Tomatoes",
+   "state": "ok",
+   "detail": "OMDb · 10 titles scored",
+   "ms": 155,
+   "dt": 155
+  },
+  {
+   "type": "answer",
+   "text": "Here are 3 comedies under 2 h on Netflix. Top pick: Puss in Boots: The Last Wish (2022), IMDb 7.9.",
+   "items": [
+    {
+     "title": "Puss in Boots: The Last Wish",
+     "kind": "movie",
+     "year": 2022,
+     "poster": "https://image.tmdb.org/t/p/w342/kuf6dutpsT0vSVehic3EZIqkOBt.jpg",
+     "imdb": "7.9",
+     "rt": null,
+     "platform": "netflix",
+     "platformName": "Netflix",
+     "runtime": 103,
+     "seasons": null,
+     "genres": [
+      "Animation",
+      "Adventure"
+     ]
+    },
+    {
+     "title": "The Mitchells vs. the Machines",
+     "kind": "movie",
+     "year": 2021,
+     "poster": "https://image.tmdb.org/t/p/w342/mI2Di7HmskQQ34kz0iau6J1vr70.jpg",
+     "imdb": "7.6",
+     "rt": 97,
+     "platform": "netflix",
+     "platformName": "Netflix",
+     "runtime": 110,
+     "seasons": null,
+     "genres": [
+      "Animation",
+      "Adventure"
+     ]
+    },
+    {
+     "title": "Ice Age",
+     "kind": "movie",
+     "year": 2002,
+     "poster": "https://image.tmdb.org/t/p/w342/gLhHHZUzeseRXShoDyC4VqLgsNv.jpg",
+     "imdb": "7.5",
+     "rt": 76,
+     "platform": "netflix",
+     "platformName": "Netflix",
+     "runtime": 81,
+     "seasons": null,
+     "genres": [
+      "Animation",
+      "Comedy"
+     ]
+    }
+   ],
+   "brain": "built-in",
+   "dt": 0
+  }
+ ]
+}

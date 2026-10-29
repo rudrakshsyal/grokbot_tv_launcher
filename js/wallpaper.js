@@ -10,7 +10,24 @@
 (function () {
   'use strict';
   var KB = ['kb1', 'kb2', 'kb3', 'kb4'];
-  var state = { list: [], idx: -1, front: null, back: null, timer: null, motion: true, opt: null, ready: false, fails: 0 };
+  var state = { list: [], idx: -1, front: null, back: null, timer: null, motion: true, opt: null, ready: false, fails: 0,
+                pref: null, paused: false };
+
+  /* ---------- day / night preference ----------
+   * opt.tod = { day: [ids], night: [ids] } (config.wallpaper.timeOfDay). With a preference set ('day' | 'night'),
+   * rotation only visits photos tagged for it (untagged photos fit both); if none fit, every photo is used. */
+  function fits(i, pref) {
+    var t = state.opt && state.opt.tod, w = state.list[i];
+    if (!pref || !t || !w) return true;
+    var inDay = (t.day || []).indexOf(w.id) >= 0, inNight = (t.night || []).indexOf(w.id) >= 0;
+    if (!inDay && !inNight) return true;
+    return pref === 'night' ? inNight : inDay;
+  }
+  function nextIdx(from) {
+    var n = state.list.length;
+    for (var k = 1; k <= n; k++) { var j = (from + k + n) % n; if (fits(j, state.pref)) return j; }
+    return (from + 1) % n;
+  }
 
   function store(k, v) { try { if (v === undefined) return localStorage.getItem(k); localStorage.setItem(k, v); } catch (e) {} return null; }
   function decode(img, src) {
@@ -55,7 +72,7 @@
   }
   function addGlass(el) {
     if (!el || el.__bk) return;
-    var bk = document.createElement('div'); bk.className = 'bk'; bk.innerHTML = '<i></i><i></i>';
+    var bk = document.createElement('div'); bk.className = 'bk'; bk.innerHTML = '<i></i><i></i><b class="bk-n"></b>';   // b: night tint (opacity crossfade)
     el.insertBefore(bk, el.firstChild);
     var g = { el: el, a: bk.children[0], b: bk.children[1], front: null };
     el.__bk = g; glass.push(g); placeGlass(g);
@@ -100,7 +117,7 @@
       if (blurOk) glassTo(w.blur);
       state.front = img; state.back = prev;
       state.idx = i; store('rh.wp.idx', String(i));
-      var nw = state.list[(i + 1) % state.list.length];
+      var nw = state.list[nextIdx(i)];
       store('rh.wp.early', nw.src + '|' + (nw.blur || ''));   // index.html starts this download on the next launch
       caption(w);
       if (!state.ready) { state.ready = true; document.body.classList.add('has-wp'); document.body.classList.add('wp-ready'); }
@@ -111,12 +128,12 @@
         old.className = 'wp';                      // hidden instantly (covered by the new image)
         old.style.animation = 'none';
         // Preload the next photo only when the TV is idle (never during first paint or key handling).
-        idle(function () { if (old !== state.front) preloadInto(old, (i + 1) % state.list.length); }, 8000);
+        idle(function () { if (old !== state.front) preloadInto(old, nextIdx(i)); }, 8000);
       }, state.opt.fadeMs + 200);
     }, function () {
       busy = false; state.fails++;
       if (state.fails >= state.list.length) return;   // give up; gradient background remains
-      return show((i + 1) % state.list.length);
+      return show(nextIdx(i));
     });
   }
   function preloadInto(img, i) {
@@ -127,8 +144,8 @@
     clearTimeout(state.timer);
     if (state.opt.intervalSec <= 0 || state.list.length < 2) return;
     state.timer = setTimeout(function () {
-      if (document.hidden) { schedule(); return; }
-      show((state.idx + 1) % state.list.length).then(schedule, schedule);
+      if (document.hidden || state.paused) { schedule(); return; }   // paused: the screensaver covers it
+      show(nextIdx(state.idx)).then(schedule, schedule);
     }, state.opt.intervalSec * 1000);
   }
 
@@ -136,7 +153,7 @@
     /* opt: { intervalSec, fadeMs, motion, shuffle, showCaption, showCredit, start (index|id) } */
     start: function (list, opt) {
       state.list = (list || []).filter(function (w) { return w && w.src; });
-      state.opt = opt; state.motion = !!opt.motion;
+      state.opt = opt; state.motion = !!opt.motion; state.pref = opt.pref || null;
       state.front = document.getElementById('wpA'); state.back = document.getElementById('wpB');
       if (!state.list.length || !state.front) return;
       document.documentElement.style.setProperty('--wp-fade', opt.fadeMs + 'ms');
@@ -151,10 +168,30 @@
         var last = parseInt(store('rh.wp.idx'), 10);      // continue where we left off
         start = isNaN(last) ? 0 : (last + 1) % state.list.length;
       }
+      if (!(s !== undefined && s !== null && s !== '') && !fits(start, state.pref)) start = nextIdx(start);   // e.g. a night photo after dark
       show(start).then(schedule, schedule);
       document.addEventListener('visibilitychange', function () { if (!document.hidden) schedule(); });
     },
-    next: function () { if (state.list.length) show((state.idx + 1) % state.list.length).then(schedule, schedule); },
+    next: function () { if (state.list.length) show(nextIdx(state.idx)).then(schedule, schedule); },
+    /* Day/night: prefer photos tagged for pref; if the current one doesn't fit, move to one that does with a slow
+     * crossfade (fadeMs, opacity only; the baked glass follows). Returns true when a switch was started. */
+    setTimeOfDay: function (pref, fadeMs) {
+      state.pref = pref || null;
+      if (!state.ready || !state.list.length || fits(state.idx, state.pref)) return false;
+      var j = nextIdx(state.idx); if (j === state.idx || !fits(j, state.pref)) return false;
+      if (busy) { setTimeout(function () { RH_Wallpaper.setTimeOfDay(state.pref, fadeMs); }, 1500); return false; }
+      var keep = state.opt.fadeMs, root = document.documentElement.style;
+      if (fadeMs > keep) { state.opt.fadeMs = fadeMs; root.setProperty('--wp-fade', fadeMs + 'ms'); }
+      show(j).then(function () {
+        setTimeout(function () { state.opt.fadeMs = keep; root.setProperty('--wp-fade', keep + 'ms'); }, fadeMs + 400);
+        schedule();
+      }, schedule);
+      return true;
+    },
+    get timeOfDay() { return state.pref; },
+    fits: function (id, pref) { for (var i = 0; i < state.list.length; i++) if (state.list[i].id === id) return fits(i, pref); return true; },
+    /* The screensaver pauses rotation (no decoding behind a full-screen overlay). */
+    pause: function (on) { state.paused = !!on; },
     /* Idle mode: a longer interval (restarts the countdown from now; the current photo stays). */
     setInterval: function (sec) {
       if (!state.opt || !(sec >= 0) || sec === state.opt.intervalSec) return;

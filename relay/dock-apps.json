@@ -1,0 +1,67 @@
+{
+  "source": "js/config.js dock + js/apps.js",
+  "launcher": {
+    "key": "launcher",
+    "name": "Home",
+    "appId": "GlassHome1.launcher",
+    "color": "#8fa2ff"
+  },
+  "apps": [
+    {
+      "key": "youtube",
+      "name": "YouTube",
+      "color": "#ff2a2a",
+      "appId": "9Ur5IzDKqV.TizenYouTube",
+      "main": true
+    },
+    {
+      "key": "netflix",
+      "name": "Netflix",
+      "color": "#e50914",
+      "appId": "org.tizen.netflix-app",
+      "main": true
+    },
+    {
+      "key": "hbomax",
+      "name": "HBO Max",
+      "color": "#7b3cff",
+      "appId": "5b8c3eb16b.BeamCTVDev",
+      "main": true
+    },
+    {
+      "key": "prime",
+      "name": "Prime Video",
+      "color": "#1fa3ff",
+      "appId": "org.tizen.primevideo",
+      "main": true
+    },
+    {
+      "key": "hulu",
+      "name": "Hulu",
+      "color": "#1ce783",
+      "appId": "LBUAQX1exg.Hulu",
+      "main": true
+    },
+    {
+      "key": "appletv",
+      "name": "Apple TV",
+      "color": "#c9ced6",
+      "appId": "com.samsung.tv.aria-video",
+      "main": true
+    },
+    {
+      "key": "peacock",
+      "name": "Peacock",
+      "color": "#f5b400",
+      "appId": "gzcc4LRFBF.Peacock",
+      "main": false
+    },
+    {
+      "key": "disney",
+      "name": "Disney+",
+      "color": "#1f6bff",
+      "appId": "MCmYXNxgcu.DisneyPlus",
+      "main": false
+    }
+  ]
+}

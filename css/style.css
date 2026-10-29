@@ -540,3 +540,175 @@ body:not(.discover-on) .greet, body:not(.discover-on) .clock { opacity: 0; }
 .card .rate.rt span { font-weight: 600; }
 .rt-ic { display: inline-block; width: 22px; height: 22px; margin-right: 6px; vertical-align: -4px; }
 .pk-none { padding-left: 4px; }
+
+/* ---------------- Voice assistant overlay (js/voice.js) · Design B "Orb + Timeline" ----------------
+ * No fullscreen blur: the panels use the baked glass (.glass + RH_Wallpaper.addGlass). The orb only animates transform. */
+.vx { position: absolute; left: 0; top: 0; width: 1920px; height: 1080px; z-index: 60; opacity: 0; visibility: hidden; transition: opacity .35s ease, visibility 0s linear .35s; }
+.vx.on { opacity: 1; visibility: visible; transition: opacity .35s ease; }
+.vx-scrim { position: absolute; left: 0; top: 0; width: 1920px; height: 1080px; background: linear-gradient(180deg, rgba(4,5,10,.55), rgba(4,5,10,.35) 40%, rgba(4,5,10,.7)); }
+body.voice-on #rows, body.voice-on .discover, body.voice-on .amb, body.voice-on .hint, body.voice-on .greet, body.voice-on .wpcap, body.voice-on .dsc-sub { opacity: 0 !important; transition: opacity .3s ease; }
+.vx-orb { position: absolute; left: 150px; top: 330px; width: 300px; height: 300px; border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, #fff 0%, #cfd8ff 12%, #7d8cff 35%, #3a2a9a 62%, #120c2e 100%);
+  box-shadow: 0 0 120px 30px rgba(120,130,255,.45), 0 0 260px 80px rgba(150,90,255,.22), inset -20px -30px 60px rgba(0,0,0,.45);
+  -webkit-animation: vxBreath 4.2s ease-in-out infinite; animation: vxBreath 4.2s ease-in-out infinite; will-change: transform; }
+.vx-orb i { position: absolute; left: -30px; top: -30px; width: 360px; height: 360px; border-radius: 50%; border: 1.5px solid rgba(190,200,255,.35);
+  -webkit-animation: vxRing 4.2s ease-in-out infinite; animation: vxRing 4.2s ease-in-out infinite; }
+.vx-listening .vx-orb, .vx-working .vx-orb { -webkit-animation-duration: 1.6s; animation-duration: 1.6s; }
+.vx-listening .vx-orb i, .vx-working .vx-orb i { -webkit-animation-duration: 1.6s; animation-duration: 1.6s; }
+.vx-done .vx-orb, .vx-error .vx-orb { -webkit-animation: none; animation: none; transform: scale(.62); opacity: .85; transition: transform .6s ease, opacity .6s ease; }
+.vx-done .vx-orb i, .vx-error .vx-orb i { -webkit-animation: none; animation: none; }
+.vx-error .vx-orb { background: radial-gradient(circle at 35% 30%, #fff 0%, #ffd8cf 12%, #ff8c7d 35%, #9a2a3a 62%, #2e0c12 100%); }
+@-webkit-keyframes vxBreath { 0%, 100% { -webkit-transform: scale(.94); } 50% { -webkit-transform: scale(1.04); } }
+@keyframes vxBreath { 0%, 100% { transform: scale(.94); } 50% { transform: scale(1.04); } }
+@-webkit-keyframes vxRing { 0%, 100% { -webkit-transform: scale(1); opacity: .5; } 50% { -webkit-transform: scale(1.08); opacity: 1; } }
+@keyframes vxRing { 0%, 100% { transform: scale(1); opacity: .5; } 50% { transform: scale(1.08); opacity: 1; } }
+.vx-name { position: absolute; left: 100px; width: 400px; top: 280px; text-align: center; font-size: 22px; letter-spacing: .12em; color: rgba(255,255,255,.45); }
+.vx-cap { position: absolute; left: 100px; width: 400px; top: 665px; text-align: center; font-size: 24px; color: rgba(255,255,255,.75); }
+.vx-q { position: absolute; left: 100px; width: 400px; top: 715px; text-align: center; font-size: 28px; line-height: 1.35; font-weight: 600; color: #fff; max-height: 230px; overflow: hidden; }
+.vx-q.interim { color: rgba(255,255,255,.6); }
+.vx .glass.vx-tl, .vx .glass.vx-ap { position: absolute; top: 150px; height: 780px; padding: 40px 44px; box-sizing: border-box; border-radius: 30px; }
+.vx .glass.vx-tl { left: 560px; width: 560px; }
+.vx .glass.vx-ap { left: 1160px; width: 660px; }
+.vx h3 { margin: 0 0 26px; font-size: 20px; letter-spacing: .12em; text-transform: uppercase; color: rgba(255,255,255,.55); font-weight: 600; }
+.vx h3 span { letter-spacing: .04em; text-transform: none; color: rgba(255,255,255,.4); font-weight: 500; }
+.vx-st { position: relative; padding: 0 70px 30px 46px; }
+.vx-st:before { content: ""; position: absolute; left: 11px; top: 30px; bottom: 0; width: 2px; background: rgba(255,255,255,.16); }
+.vx-st:last-child:before { display: none; }
+.vx-st i { position: absolute; left: 0; top: 4px; width: 24px; height: 24px; border-radius: 50%; background: rgba(255,255,255,.14); box-shadow: inset 0 0 0 1.5px rgba(255,255,255,.3); }
+.vx-st.ok i { background: #5ee08a; box-shadow: none; }
+.vx-st.ok i:after { content: "\2713"; position: absolute; left: 5px; top: 0; font-size: 16px; color: #073; font-weight: 800; font-style: normal; }
+.vx-st.err i { background: #ff7a7a; box-shadow: none; }
+.vx-st.err i:after { content: "!"; position: absolute; left: 9px; top: 0; font-size: 17px; color: #400; font-weight: 800; font-style: normal; }
+.vx-st.live i { background: #9fb6ff; box-shadow: 0 0 0 6px rgba(159,182,255,.22), 0 0 22px #9fb6ff; }
+.vx-st b { display: block; font-size: 26px; font-weight: 600; color: #fff; }
+.vx-st span { display: block; font-size: 19px; color: rgba(255,255,255,.6); margin-top: 6px; line-height: 1.3; }
+.vx-st em { position: absolute; right: 0; top: 4px; font-size: 18px; font-style: normal; color: rgba(255,255,255,.45); }
+.vx-bar { height: 6px; border-radius: 3px; background: rgba(255,255,255,.14); margin-top: 12px; width: 360px; overflow: hidden; }
+.vx-bar u { display: block; height: 6px; width: 40%; background: linear-gradient(90deg, #9fb6ff, #d6a2ff); -webkit-animation: vxSweep 1.2s ease-in-out infinite; animation: vxSweep 1.2s ease-in-out infinite; }
+@-webkit-keyframes vxSweep { 0% { -webkit-transform: translateX(-100%); } 100% { -webkit-transform: translateX(250%); } }
+@keyframes vxSweep { 0% { transform: translateX(-100%); } 100% { transform: translateX(250%); } }
+.vx-ans { font-size: 28px; line-height: 1.4; margin-bottom: 28px; color: #fff; }
+.vx-row { position: relative; height: 150px; margin-bottom: 18px; border-radius: 18px; }
+.vx-row.sel:after { content: ""; position: absolute; left: -12px; top: -9px; right: -12px; bottom: -9px; border-radius: 22px; box-shadow: inset 0 0 0 3px rgba(255,255,255,.85), 0 0 28px rgba(160,180,255,.35); }
+.vx-art { position: absolute; left: 0; top: 0; width: 100px; height: 150px; border-radius: 14px; overflow: hidden; background: linear-gradient(160deg, #5ad1ff, #3a5bd8 65%, #141a4a); box-shadow: 0 10px 24px -10px rgba(0,0,0,.6), inset 0 0 0 1px rgba(255,255,255,.12); }
+.vx-art img { width: 100px; height: 150px; object-fit: cover; display: block; }
+.vx-art b { position: absolute; left: 8px; right: 8px; bottom: 8px; font-size: 15px; line-height: 1.15; }
+.vx-tx { position: absolute; left: 124px; top: 6px; right: 0; }
+.vx-tx b { font-size: 24px; color: #fff; display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.vx-tx div { font-size: 18px; color: rgba(255,255,255,.6); margin-top: 6px; }
+.vx-badge { display: inline-block; font-size: 15px; font-weight: 700; border-radius: 7px; padding: 3px 8px; margin: 10px 6px 0 0; }
+.vx-badge.imdb { background: #f5c518; color: #000; }
+.vx-badge.rt { background: rgba(255,255,255,.14); color: #fff; }
+.vx-plat { display: inline-block; font-size: 15px; color: rgba(255,255,255,.7); margin: 10px 0 0 4px; }
+.vx-tx .vx-go { font-size: 16px; color: rgba(255,255,255,.0); margin-top: 8px; }
+.vx-row.sel .vx-go { color: rgba(255,255,255,.8); }
+.vx-sk { height: 22px; border-radius: 11px; background: rgba(255,255,255,.12); margin: 16px 0; }
+.vx-sk.big { width: 80%; height: 150px; border-radius: 14px; margin-top: 30px; }
+.vx-help { position: absolute; left: 560px; top: 960px; font-size: 20px; color: rgba(255,255,255,.6); }
+.vx-help b { color: #fff; font-weight: 600; }
+
+/* Request stats (voice.js renderStats): one quiet low-contrast line just under the answer panel (level with the key help), fades in after
+ * the answer; Info expands a small card above it. Opacity/transform only. */
+.vx-stats { position: absolute; left: 1204px; width: 572px; top: 963px; font-size: 16px; text-align: right; letter-spacing: .02em; color: rgba(255,255,255,.34); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; opacity: 0; transition: opacity .8s ease; font-variant-numeric: tabular-nums; }
+.vx-stats.in { opacity: 1; }
+.vx-stats.open { color: rgba(255,255,255,.6); }
+.vx-sd { position: absolute; left: 1250px; bottom: 136px; width: 540px; z-index: 5; padding: 20px 22px 16px; box-sizing: border-box; border-radius: 20px; background: rgba(18,20,34,.95); box-shadow: 0 18px 40px -14px rgba(0,0,0,.7), inset 0 0 0 1px rgba(255,255,255,.12);
+  opacity: 0; visibility: hidden; transform: translateY(12px); transition: opacity .25s ease, transform .25s ease, visibility 0s linear .25s; font-size: 15px; color: rgba(255,255,255,.7); }
+.vx-sd.on { opacity: 1; visibility: visible; transform: translateY(0); transition: opacity .25s ease, transform .25s ease; }
+.vx-sd-h { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 14px; }
+.vx-sd-h b { font-size: 17px; color: #fff; font-weight: 600; }
+.vx-sd-h span { font-size: 14px; color: rgba(255,255,255,.5); }
+.vx-sd-g { display: flex; margin-bottom: 14px; }
+.vx-sd-g div { flex: 1; font-size: 12px; letter-spacing: .08em; text-transform: uppercase; color: rgba(255,255,255,.42); }
+.vx-sd-g em { display: block; font-style: normal; font-size: 22px; letter-spacing: 0; text-transform: none; color: #fff; font-weight: 600; margin-bottom: 2px; }
+.vx-sd-s div { position: relative; height: 24px; line-height: 24px; font-size: 14px; }
+.vx-sd-s span { position: absolute; left: 0; width: 220px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: rgba(255,255,255,.7); }
+.vx-sd-s i { position: absolute; left: 230px; top: 10px; height: 4px; border-radius: 2px; background: linear-gradient(90deg, #9fb6ff, #d6a2ff); opacity: .8; }
+.vx-sd-s em { position: absolute; right: 0; font-style: normal; color: rgba(255,255,255,.5); font-variant-numeric: tabular-nums; }
+.vx-sd-f { margin-top: 10px; font-size: 13px; color: rgba(255,255,255,.45); }
+.vx-sd-f.warn { color: #f5c86a; }
+.vx-hi { color: rgba(255,255,255,.4); }
+.vx-hi b { color: rgba(255,255,255,.7) !important; }
+
+/* =====================================================================
+ * v5 (Oct 2026): day/night look, inputs row in the dock, picks screensaver.
+ * Transitions are transform/opacity only; no new backdrop-filter.
+ * ===================================================================== */
+
+/* ---- day / night (js/daynight.js toggles body.day / body.night) ----
+ * Night: a dim, slightly warm layer over the photo, a darker tint inside the baked glass, softer text. Everything
+ * crossfades by opacity over --tod-fade; .tod-instant (first paint) skips the fade. */
+.tod-night { position: absolute; left: 0; top: 0; right: 0; bottom: 0; pointer-events: none; opacity: 0;
+  background: linear-gradient(180deg, rgba(22,16,10,.34) 0%, rgba(12,9,8,.30) 45%, rgba(4,4,8,.46) 100%);
+  transition: opacity var(--tod-fade, 4000ms) ease-in-out; will-change: opacity; }
+.night .tod-night { opacity: 1; }
+.bk .bk-n { position: absolute; left: 0; top: 0; right: 0; bottom: 0; z-index: 2; opacity: 0; background: rgba(10,10,18,.30);
+  transition: opacity var(--tod-fade, 4000ms) ease-in-out; }
+.night .bk .bk-n { opacity: 1; }
+.amb-time, .amb-date { transition: opacity var(--tod-fade, 4000ms) ease-in-out; }
+.night .amb-time { opacity: .88; }
+.night .amb-date { opacity: .8; }
+.day .amb { text-shadow: 0 2px 26px rgba(0,0,0,.55); }
+.tod-instant .tod-night, .tod-instant .bk-n, .tod-instant .amb-time, .tod-instant .amb-date { transition: none !important; }
+
+/* ---- inputs row (second line inside the dock) ---- */
+.dock-in { display: none; position: relative; z-index: 3; margin-top: 16px; padding-top: 14px; white-space: nowrap; }
+.dock-in:before { content: ""; position: absolute; left: 6px; right: 6px; top: 0; height: 1px; background: rgba(255,255,255,.14); }
+.has-inputs .dock-in { display: block; }
+.has-inputs .row-dock { top: 772px; }
+.in-lab { display: inline-block; vertical-align: middle; margin: 0 18px 0 6px; font-size: 15px; font-weight: 600; letter-spacing: 1.6px;
+  text-transform: uppercase; color: rgba(255,255,255,.5); }
+.in-mock { display: inline-block; vertical-align: middle; margin: 0 16px 0 6px; padding: 5px 12px; border-radius: 8px; font-size: 13px; font-weight: 800;
+  letter-spacing: 1.4px; text-transform: uppercase; background: #ffcc33; color: #1a1400; }
+.in-chip { position: relative; display: inline-block; vertical-align: middle; height: 48px; line-height: 48px; padding: 0 22px 0 16px; margin-right: 12px;
+  border-radius: 999px; color: rgba(255,255,255,.88); font-size: 19px; font-weight: 500; letter-spacing: .4px;
+  background: linear-gradient(160deg, rgba(255,255,255,.15), rgba(255,255,255,.05));
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.28), inset 0 0 0 1px rgba(255,255,255,.10);
+  transform: translateZ(0); transition: transform 140ms cubic-bezier(.2,.8,.2,1); }
+.in-chip .in-bg { position: absolute; left: 0; top: 0; right: 0; bottom: 0; border-radius: inherit; background: rgba(255,255,255,.94); opacity: 0;
+  transition: opacity 140ms ease; }
+.in-chip > .in-ic, .in-chip > span { position: relative; }
+.in-ic { width: 26px; height: 26px; margin-right: 10px; vertical-align: -7px; }
+.in-s { margin-left: 10px; font-size: 15px; font-weight: 400; opacity: .6; }
+.in-chip.is-focused { transform: scale(1.1); color: #111; }
+.in-chip.is-focused .in-bg { opacity: 1; }
+.in-set { margin-left: 8px; }
+
+/* ---- picks screensaver (js/saver.js) ---- */
+.sv { position: absolute; left: 0; top: 0; width: 1920px; height: 1080px; z-index: 8; overflow: hidden; background: #000; pointer-events: none;
+  opacity: 0; visibility: hidden; transition: opacity 1400ms ease, visibility 0s linear 1400ms; }
+.sv.on { opacity: 1; visibility: visible; transition: opacity 1400ms ease; }
+.sv.out { transition: opacity 350ms ease, visibility 0s linear 350ms; }
+.sv-ph { position: absolute; left: 0; top: 0; width: 1920px; height: 1080px; overflow: hidden; }
+.sv-img { position: absolute; left: 0; top: 0; width: 1920px; height: 1080px; object-fit: cover; opacity: 0; transform-origin: 50% 50%;
+  will-change: transform, opacity; -webkit-backface-visibility: hidden; backface-visibility: hidden;
+  transition: opacity var(--sv-fade, 2200ms) ease-in-out; }
+.sv-img:not([src]) { visibility: hidden; }
+.sv-img.on { opacity: 1; z-index: 1; }
+.sv-img.top { z-index: 2; }
+.sv-img.now { transition: none; }
+@keyframes svkb1 { from { transform: scale(1) translate3d(0, 0, 0); } to { transform: scale(1.08) translate3d(-1.5%, -.8%, 0); } }
+@keyframes svkb2 { from { transform: scale(1.08) translate3d(1.5%, .6%, 0); } to { transform: scale(1) translate3d(0, 0, 0); } }
+.sv-shade { position: absolute; left: 0; top: 0; width: 1920px; height: 1080px; z-index: 3;
+  background: radial-gradient(1100px 620px at 0% 0%, rgba(0,0,0,.55), rgba(0,0,0,0) 72%),
+    linear-gradient(180deg, rgba(0,0,0,.22) 0%, rgba(0,0,0,0) 32%, rgba(0,0,0,0) 56%, rgba(0,0,0,.66) 100%); }
+.sv-clock { position: absolute; left: 96px; top: 80px; z-index: 4; padding: 22px 46px 28px 40px; border-radius: 44px; color: #fff;
+  background: linear-gradient(160deg, rgba(255,255,255,.16) 0%, rgba(255,255,255,.05) 50%, rgba(255,255,255,.02) 100%), rgba(14,16,24,.44);
+  box-shadow: inset 0 1.5px 0 rgba(255,255,255,.34), inset 0 0 0 1px rgba(255,255,255,.12), 0 24px 60px -20px rgba(0,0,0,.6);
+  text-shadow: 0 2px 20px rgba(0,0,0,.35); }
+.sv-time { font-size: 150px; font-weight: 200; line-height: 1; letter-spacing: -2px; font-variant-numeric: tabular-nums; }
+.sv-time small { font-size: 40px; font-weight: 300; letter-spacing: 2px; margin-left: 12px; color: rgba(255,255,255,.72); }
+.sv-date { margin: 10px 0 0 6px; font-size: 28px; font-weight: 300; letter-spacing: 2px; color: rgba(255,255,255,.84); }
+.sv-meta { position: absolute; left: 100px; bottom: 74px; z-index: 4; color: #fff; opacity: 0; transition: opacity 600ms ease; white-space: nowrap; }
+.sv-meta.in { opacity: 1; }
+.sv-title { display: inline-block; vertical-align: middle; font-size: 34px; font-weight: 500; letter-spacing: .3px; text-shadow: 0 2px 16px rgba(0,0,0,.6); }
+.sv-badges { display: inline-block; vertical-align: middle; margin-left: 20px; }
+.sv-badges .rate { vertical-align: middle; height: 28px; line-height: 28px; padding: 0 9px; margin-right: 8px; font-size: 15px; border-radius: 6px; }
+.sv-badges .rate b { font-size: 13px; margin-right: 3px; }
+.sv-badges .rate.rt { background: rgba(255,255,255,.14); color: #fff; box-shadow: inset 0 0 0 1px rgba(255,255,255,.2); padding: 0 10px 0 6px; }
+.sv-badges .rt-ic { width: 18px; height: 18px; margin-right: 4px; vertical-align: -3px; }
+.sv-hint { margin-top: 12px; font-size: 18px; font-weight: 400; letter-spacing: .8px; color: rgba(255,255,255,.62); }
+.sv-hint b { display: inline-block; padding: 1px 8px; margin-right: 8px; border-radius: 6px; font-size: 14px; font-weight: 700; letter-spacing: 1px;
+  background: rgba(255,255,255,.18); color: #fff; box-shadow: inset 0 0 0 1px rgba(255,255,255,.22); }
+.saver-on .hint, .saver-on .toast { opacity: 0 !important; }
+.reduce-motion .sv-img { animation: none !important; }

@@ -18,6 +18,7 @@
     <tizen:privilege name="http://tizen.org/privilege/application.info"/>
     <tizen:privilege name="http://tizen.org/privilege/internet"/>
     <tizen:privilege name="http://tizen.org/privilege/tv.inputdevice"/>
+    <tizen:privilege name="http://tizen.org/privilege/tv.window"/>
 
     <!-- Network access for optional TMDB / OMDb / Trakt + poster images. -->
     <access origin="*" subdomains="true"/>

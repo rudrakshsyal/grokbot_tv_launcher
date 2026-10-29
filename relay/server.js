@@ -1,0 +1,228 @@
+'use strict';
+// Glass Home voice relay: phone page (mic) -> brain (LLM with tools, or the free parser) -> SSE timeline to the TV.
+// Zero dependencies, Node 14+.  Run: node server.js   (env vars: see README.md)
+const http = require('http'), fs = require('fs'), path = require('path'), os = require('os');
+const LLM = require('./brain-llm'), FREE = require('./brain-free'), T = require('./tools'), M = require('./metrics');
+const E = process.env, PORT = +(E.PORT || 8787), MOCK = E.MOCK === '1';
+const { TvPower } = require('./tv-power');
+const { TvRemote, KEYS } = require('./tv-remote'), DOCK = require('./dock-apps');
+// Phone remote -> Samsung TV (local WebSocket remote API on :8002, REST app launch on :8001, Wake-on-LAN). See README.md.
+const tv = new TvRemote({ host: E.TV_IP || '', mac: E.TV_MAC || '', name: E.TV_REMOTE_NAME || 'Glass Home Remote',
+  tokenFile: E.TV_TOKEN_FILE || path.join(__dirname, '.secrets', 'tv-token.json'), wsMode: E.TV_WS_MODE || 'auto',
+  wsPort: +(E.TV_WS_PORT || 8002), plainPort: +(E.TV_PLAIN_WS_PORT || 8001), restPort: +(E.TV_REST_PORT || 8001) });
+const tvPower = new TvPower(tv, { pollMs: +(E.TV_POLL_MS || 5000), settleMs: E.AUTO_LAUNCH_DELAY_MS != null ? +E.AUTO_LAUNCH_DELAY_MS : 4000,
+  appId: E.LAUNCHER_APP_ID || 'GlassHome1.launcher', autoLaunch: E.AUTO_LAUNCH !== '0', log: m => tvlog(m) });
+// Log TV state changes only (the same state is never logged twice in a row, so an off TV doesn't spam the log).
+let lastTvLog = '';
+function tvlog(m) { if (E.LOG !== '0' && m !== lastTvLog) { lastTvLog = m; console.log('[' + new Date().toLocaleTimeString() + '] ' + m); } }
+tv.on('state', st => tvlog('tv remote ' + st.state + (st.lastError && st.state !== 'connected' ? ' \u00b7 ' + st.lastError : '')));
+tvPower.on('power', p => { if (p === 'on' && tv.token && E.TV_AUTOCONNECT !== '0' && !tv.sock && tv.state !== 'connected') { tv.lastUse = Date.now(); tv.connect(); } });
+// Simple per-IP token bucket for /remote/* (D-pad repeat is ~6/s; allow short bursts).
+const buckets = new Map();
+function allow(ip, cost) {
+  const now = Date.now(), b = buckets.get(ip) || { t: now, n: 20 };
+  b.n = Math.min(20, b.n + (now - b.t) / 1000 * 12); b.t = now;
+  if (b.n < (cost || 1)) { buckets.set(ip, b); return false; }
+  b.n -= cost || 1; buckets.set(ip, b); if (buckets.size > 200) buckets.delete(buckets.keys().next().value); return true;
+}
+const LANGS = new Set(['en-US', 'hi-IN', 'en-IN']);
+const LAUNCHER_ACTIONS = new Set(['yoyo', 'stats', 'close']);
+const ICONS = { '/apple-touch-icon.png': 'icon-180.png', '/icon-180.png': 'icon-180.png', '/icon-512.png': 'icon-512.png', '/icon-192.png': 'icon-192.png' };
+
+const clients = new Set(), waiters = [];
+let seq = 0, current = null, lastEvents = [];
+function send(ev) {
+  ev.ts = Date.now();
+  if (ev.type === 'start') lastEvents = [];
+  lastEvents.push(ev); if (lastEvents.length > 80) lastEvents.shift();
+  const line = 'data: ' + JSON.stringify(ev) + '\n\n';
+  clients.forEach(res => { try { res.write(line); } catch (e) {} });
+  for (let i = waiters.length - 1; i >= 0; i--) if (waiters[i](ev)) waiters.splice(i, 1);
+  if (E.LOG !== '0' && ev.type !== 'transcript') console.log('[' + new Date().toLocaleTimeString() + ']', ev.type, ev.phase || '', ev.label || ev.text || ev.message || ev.query || '', ev.detail ? '\u00b7 ' + ev.detail : '', ev.ms != null ? ev.ms + 'ms' : '');
+}
+// resolve a waiting POST /ask without broadcasting (used when its session is replaced)
+function settle(ev) { for (let i = waiters.length - 1; i >= 0; i--) if (waiters[i](ev)) waiters.splice(i, 1); }
+function session(query) {
+  if (current && !current.cancelled) {                    // a new request replaces the one on screen; its /ask is answered now, not after a 90 s timeout
+    current.cancelled = true; settle({ type: 'error', session: current.id, superseded: true, message: 'Replaced by a newer question.' });
+  }
+  const s = { id: ++seq, cancelled: false, n: 0 };
+  current = s;
+  const emit = ev => { if (ev.type === 'action' && s.ctx.metrics) s.ctx.metrics.actions.push({ action: ev.action, app: ev.app }); if (!s.cancelled) send(Object.assign({ session: s.id }, ev)); };
+  s.ctx = {
+    emit, cancelled: () => s.cancelled,
+    async step(label, fn) {
+      const id = ++s.n, t0 = Date.now();
+      emit({ type: 'step', id, phase: 'start', label });
+      try { const d = await fn(); s.ctx.metrics && s.ctx.metrics.step(label, Date.now() - t0, 'ok'); emit({ type: 'step', id, phase: 'end', label, state: 'ok', detail: d || '', ms: Date.now() - t0 }); return d; }
+      catch (e) { s.ctx.metrics && s.ctx.metrics.step(label, Date.now() - t0, 'err'); emit({ type: 'step', id, phase: 'end', label, state: 'err', detail: String(e.user || e.message || 'failed').slice(0, 90), ms: Date.now() - t0 }); throw e; }
+    }
+  };
+  emit({ type: 'start', query });
+  return s;
+}
+// what the phone reads aloud: plain text, no emoji/markdown/URLs/parenthesised years, at most 2 sentences
+function spoken(t) {
+  t = String(t || '').replace(/https?:\/\/\S+/g, '').replace(/[*_#`>~|]/g, '').replace(/\((?:19|20)\d\d\)/g, '')
+    .replace(/[\u{1F000}-\u{1FAFF}\u{2600}-\u{27BF}\u{FE0F}\u{200D}\u{2B50}]/gu, '').replace(/\s+([,.!?\u0964])/g, '$1').replace(/\s{2,}/g, ' ').trim();
+  const out = t.split(/(?<=[.!?\u0964])\s+/).slice(0, 2).join(' ');
+  return out.trim().slice(0, 400);
+}
+const slim = i => ({ title: i.title, kind: i.kind, year: i.year, poster: i.poster, imdb: i.imdb, rt: i.rt, platform: i.platform, platformName: i.platformName, runtime: i.runtime, seasons: i.seasons, genres: i.genres });
+
+async function ask(text, o) {
+  o = o || {};
+  if (MOCK) return replay();
+  const s = session(text), ctx = s.ctx, m = ctx.metrics = M.begin(text, o);
+  ctx.emit({ type: 'transcript', text, final: true });
+  await ctx.step('Heard you', async () => '\u201c' + text + '\u201d \u00b7 ' + text.split(/\s+/).length + ' words' + (o.sttMs ? ' \u00b7 ' + (o.sttMs / 1000).toFixed(1) + ' s of speech' : '') + (o.typed ? ' \u00b7 typed' : ''));
+  let ans = null;
+  if (LLM.enabled()) {
+    try { ans = await LLM.run(text, ctx, o.client || 'default', { lang: o.lang }); }
+    catch (e) {
+      if (s.cancelled) return;
+      if (!e.noLLM) {
+        const why = M.reason(e);
+        if (!e.budget) m.hop(e.model || 'llm', why);   // budget skips were already recorded per endpoint
+        await ctx.step('Switching to free mode', async () => 'LLM ' + why + ' \u2192 built-in parser');
+        console.warn('LLM failed \u2192 built-in parser (' + why + '):', String(e.message || '').slice(0, 240));
+      }
+    }
+  }
+  try {
+    if (!ans) { ans = await FREE.run(text, ctx); ans.brain = 'built-in'; if (!s.cancelled) LLM.remember(o.client || 'default', text, ans.text); }
+    ans.spoken = spoken(ans.text);
+    const st = M.stats(m, ans.brain);
+    ans.stats = st; ans.metrics = m; M.record(m, st, { answer: ans.text.slice(0, 300), items: (ans.items || []).length });
+    ctx.emit({ type: 'answer', text: ans.text, items: (ans.items || []).map(slim), brain: ans.brain, spoken: ans.spoken, stats: st });
+    return ans;
+  } catch (e) {
+    const msg = e.user || 'Something went wrong (' + String(e.message || '').slice(0, 60) + ')', st = M.stats(m, null, M.reason(e));
+    M.record(m, st);
+    ctx.emit({ type: 'error', message: msg, stats: st });
+    return { error: msg, text: '', items: [], stats: st, metrics: m };
+  }
+}
+// MOCK=1: replays a recorded real session (mock-session.json) with its original timings; needs no keys or network
+function replay() {
+  const rec = JSON.parse(fs.readFileSync(path.join(__dirname, 'mock-session.json'), 'utf8'));
+  const s = session(rec.query); let t = 0;
+  const slow = +(E.MOCK_SLOW || 1), t0 = Date.now();
+  rec.events.forEach(ev => { t += (ev.dt || 0) * slow; setTimeout(() => { const c = Object.assign({}, ev, { mock: true }); delete c.dt;
+    if (c.type === 'answer' && !c.stats) c.stats = { brain: 'free', model: 'mock replay', llmCalls: 0, tokens: 'n/a', llmMs: 0, toolMs: {}, tools: 0, firstStepMs: null, totalMs: Date.now() - t0, hops: 0, fallback: null, error: null, steps: [] };
+    s.ctx.emit(c); }, t); });
+}
+
+function body(req) { return new Promise(r => { let b = ''; req.on('data', c => { b += c; if (b.length > 1e5) req.destroy(); }); req.on('end', () => { try { r(JSON.parse(b || '{}')); } catch (e) { r({}); } }); }); }
+const CORS = { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers': 'Content-Type', 'Access-Control-Allow-Methods': 'GET,POST,OPTIONS' };
+function json(res, code, o) { res.writeHead(code, Object.assign({ 'Content-Type': 'application/json' }, CORS)); res.end(JSON.stringify(o)); }
+
+async function remote(req, res, u) {
+  const ip = req.socket.remoteAddress || '?';
+  if (req.method === 'GET' && u === '/remote/status') return json(res, 200, Object.assign(tv.status(), tvPower.status(), { launcher: clients.size > 0 }));
+  if (req.method === 'GET' && u === '/remote/apps') { const d = DOCK.load(); return json(res, 200, { launcher: d.launcher, apps: d.apps }); }
+  if (req.method !== 'POST') return json(res, 404, { error: 'not found' });
+  if (!/application\/json/.test(req.headers['content-type'] || '')) return json(res, 415, { error: 'json only' });
+  if (!allow(ip, u === '/remote/key' ? 1 : 3)) return json(res, 429, { error: 'slow down' });
+  const b = await body(req), fail = e => json(res, e.code === 'bad-key' || e.code === 'bad-app' ? 400 : /^(no-mac|pairing|unpaired|pair-timeout|denied)$/.test(e.code) ? 409 : 503,
+    { ok: false, error: e.code || 'error', message: String(e.message || '').slice(0, 160), status: tv.status() });
+  try {
+    if (u === '/remote/key') {
+      const k = String(b.key || '').toUpperCase();
+      if (k !== 'PLAYPAUSE' && !KEYS.has(k)) return json(res, 400, { ok: false, error: 'bad-key' });
+      const cmd = b.cmd === 'Press' || b.cmd === 'Release' ? b.cmd : 'Click';
+      return json(res, 200, { ok: true, key: await tv.key(k, cmd) });
+    }
+    if (u === '/remote/pair') { const st = tv.pair(); return json(res, 200, { ok: true, status: st }); }   // returns at once; the phone polls /remote/status
+    if (u === '/remote/launch') {
+      const d = DOCK.load(), want = String(b.app || ''), a = want === 'launcher' ? d.launcher : d.apps.filter(x => x.key === want)[0];
+      if (!a) return json(res, 400, { ok: false, error: 'bad-app' });   // only dock apps and the launcher can be launched
+      return json(res, 200, Object.assign({ ok: true, app: a.key }, await tv.launch(a.appId)));
+    }
+    if (u === '/remote/power') {
+      // On (REST says PowerState on) -> KEY_POWER over the paired WebSocket. Off/standby/unreachable -> Wake-on-LAN.
+      const on = tvPower.power === 'on' || tv.state === 'connected';
+      if (b.action === 'on' || (b.action !== 'off' && !on)) {
+        if (!tv.mac) return json(res, 409, { ok: false, error: 'no-mac', message: 'Set TV_MAC to power the TV on from the phone (see README).', status: tv.status() });
+        const r = await tv.wake({ address: E.TV_WOL_ADDR || undefined });
+        return json(res, 200, { ok: true, via: 'wol', sent: r.sent });
+      }
+      if (tv.state !== 'connected' && tv.token) await tv.ready(2500);
+      return json(res, 200, { ok: true, key: await tv.key('KEY_POWER') });
+    }
+    if (u === '/remote/launcher') {   // launcher-only actions over the existing SSE channel (handled in js/voice.js)
+      const a = String(b.action || '');
+      if (!LAUNCHER_ACTIONS.has(a)) return json(res, 400, { ok: false, error: 'bad-action' });
+      if (!clients.size) return json(res, 409, { ok: false, error: 'launcher-offline' });
+      send({ type: 'remote', action: a }); return json(res, 200, { ok: true });
+    }
+  } catch (e) { return fail(e); }
+  json(res, 404, { error: 'not found' });
+}
+
+const server = http.createServer(async (req, res) => {
+  const u = req.url.split('?')[0];
+  if (req.method === 'OPTIONS') { if (u.startsWith('/remote/')) { res.writeHead(403); return res.end(); } res.writeHead(204, CORS); return res.end(); }   // no cross-site TV control
+  if (req.method === 'GET' && (u === '/' || u === '/index.html')) {
+    res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' });
+    return res.end(fs.readFileSync(path.join(__dirname, 'phone.html')));
+  }
+  if (req.method === 'GET' && u === '/ca.crt') {
+    const f = path.join(__dirname, 'certs', 'ca.crt');
+    if (!fs.existsSync(f)) return json(res, 404, { error: 'no ca' });
+    res.writeHead(200, { 'Content-Type': 'application/x-x509-ca-cert', 'Content-Disposition': 'attachment; filename="GlassHome-CA.crt"' });
+    return res.end(fs.readFileSync(f));
+  }
+  if (req.method === 'GET' && u === '/manifest.json') return json(res, 200, { name: 'Glass Home Remote', short_name: 'Remote', start_url: '/', scope: '/', display: 'standalone', orientation: 'portrait', background_color: '#07080d', theme_color: '#07080d',
+    icons: [{ src: '/icon-192.png', sizes: '192x192', type: 'image/png' }, { src: '/icon-512.png', sizes: '512x512', type: 'image/png' }, { src: '/icon-180.png', sizes: '180x180', type: 'image/png', purpose: 'any' }] });
+  if (req.method === 'GET' && ICONS[u]) {
+    const f = path.join(__dirname, 'icons', ICONS[u]);
+    if (!fs.existsSync(f)) return json(res, 404, { error: 'no icon' });
+    res.writeHead(200, { 'Content-Type': 'image/png', 'Cache-Control': 'max-age=86400' }); return res.end(fs.readFileSync(f));
+  }
+  if (u.startsWith('/remote/')) return remote(req, res, u);
+  if (req.method === 'GET' && u === '/events') {
+    res.writeHead(200, Object.assign({ 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache', Connection: 'keep-alive', 'X-Accel-Buffering': 'no' }, CORS));
+    res.write('retry: 4000\n: hello\n\n');
+    clients.add(res);
+    const ka = setInterval(() => res.write(': ka\n\n'), 15000);
+    req.on('close', () => { clearInterval(ka); clients.delete(res); });
+    return;
+  }
+  if (req.method === 'GET' && u === '/status') return json(res, 200, { ok: true, mock: MOCK, brain: LLM.enabled() ? LLM.describe() : 'built-in parser', tvs: clients.size, budget: LLM.budgetStatus(), tmdb: T.hasTmdb(), omdb: T.hasOmdb() });
+  if (req.method === 'GET' && u === '/stats') return json(res, 200, M.aggregate(M.read()));
+  if (req.method === 'GET' && u === '/last') return json(res, 200, lastEvents);
+  if (req.method === 'POST' && u === '/listening') { const b = await body(req); send({ type: b.stop ? 'idle' : 'listening', message: b.why ? String(b.why).slice(0, 160) : undefined }); return json(res, 200, { ok: true }); }
+  if (req.method === 'POST' && u === '/transcript') { const b = await body(req); send({ type: 'transcript', text: String(b.text || '').slice(0, 400), final: false }); return json(res, 200, { ok: true }); }
+  if (req.method === 'POST' && u === '/chat/reset') { const b = await body(req); LLM.reset(String(b.client || 'default').slice(0, 64)); if (E.LOG !== '0') console.log('[' + new Date().toLocaleTimeString() + '] new chat'); return json(res, 200, { ok: true }); }
+  if (req.method === 'POST' && u === '/ask') {
+    const b = await body(req), text = String(b.text || '').trim().slice(0, 400);
+    if (!text) return json(res, 400, { error: 'empty' });
+    const id = seq + 1;
+    const got = await new Promise(r => {
+      const t = setTimeout(() => r({ type: 'error', message: 'timeout' }), 90000);
+      waiters.push(ev => { if (ev.session === id && (ev.type === 'answer' || ev.type === 'error')) { clearTimeout(t); r(ev); return true; } });
+      ask(text, { typed: !!b.typed, sttMs: +b.sttMs || 0, client: String(b.client || 'default').slice(0, 64), lang: LANGS.has(b.lang) ? b.lang : 'en-US' });
+    });
+    return json(res, 200, got);
+  }
+  json(res, 404, { error: 'not found' });
+});
+
+if (require.main === module) server.listen(PORT, '0.0.0.0', () => {
+  const ips = [].concat.apply([], Object.values(os.networkInterfaces())).filter(i => i.family === 'IPv4' && !i.internal).map(i => i.address);
+  console.log('Voice relay on :' + PORT + (MOCK ? ' (MOCK replay)' : '') + ' \u00b7 brain: ' + (LLM.endpoints().map(e => e.model + (e.local ? ' (if Ollama is running)' : '')).concat('built-in parser').join(' \u2192 ')));
+  console.log('TV remote \u2192 ' + tv.host + (tv.token ? ' (paired)' : ' (not paired yet: tap Pair on the phone, then Allow on the TV)') + (tv.mac ? ' \u00b7 Wake-on-LAN ' + tv.mac : ''));
+  console.log('TV power watch ' + (E.TV_POLL === '0' ? 'off' : 'every ' + tvPower.pollMs / 1000 + ' s') + ' \u00b7 auto-open ' + tvPower.appId + ' on power-on: ' + (tvPower.autoLaunch && E.TV_POLL !== '0' ? 'on' : 'off'));
+  if (E.TV_POLL !== '0') tvPower.start();                 // connects the paired remote when the TV is on
+  else if (tv.token && E.TV_AUTOCONNECT !== '0') { tv.lastUse = Date.now(); tv.connect(); }
+  console.log('TMDB ' + (T.hasTmdb() ? 'ok' : 'MISSING') + ' \u00b7 OMDb ' + (T.hasOmdb() ? 'ok' : 'MISSING'));
+  ips.forEach(ip => console.log('  phone: http://' + ip + ':' + PORT + '/'));
+});
+// Optional https listener so iPhone Safari allows the mic (needs a secure page).
+const CERT_DIR = path.join(__dirname, 'certs'), HTTPS_PORT = +(E.HTTPS_PORT || 8788);
+if (require.main === module && fs.existsSync(path.join(CERT_DIR, 'server.key')) && fs.existsSync(path.join(CERT_DIR, 'server.crt'))) {
+  require('https').createServer({ key: fs.readFileSync(path.join(CERT_DIR, 'server.key')), cert: fs.readFileSync(path.join(CERT_DIR, 'server.crt')) }, (req, res) => server.emit('request', req, res))
+    .listen(HTTPS_PORT, '0.0.0.0', () => console.log('  secure phone page: https://<mac-ip>:' + HTTPS_PORT + '/'));
+}
+module.exports = { server, ask, tv, tvPower, spoken };

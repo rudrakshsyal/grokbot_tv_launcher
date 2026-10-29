@@ -1,0 +1,39 @@
+<!doctype html><html><head><meta charset="utf-8"><link rel="stylesheet" href="voice.css"><style>
+.edge{position:absolute;filter:blur(22px);opacity:.95}
+.et{left:-40px;right:-40px;top:-26px;height:46px;background:linear-gradient(90deg,#ff6ec4,#ffb36b,#7ad7ff,#8a7bff,#ff6ec4)}
+.eb{left:-40px;right:-40px;bottom:-26px;height:46px;background:linear-gradient(90deg,#8a7bff,#7ad7ff,#ff6ec4,#ffb36b,#8a7bff)}
+.el{top:-40px;bottom:-40px;left:-26px;width:46px;background:linear-gradient(180deg,#ff6ec4,#8a7bff,#7ad7ff)}
+.er{top:-40px;bottom:-40px;right:-26px;width:46px;background:linear-gradient(180deg,#ffb36b,#ff6ec4,#8a7bff)}
+.done .edge{opacity:.35}
+.q{position:absolute;left:0;right:0;bottom:120px;text-align:center;font-size:44px;font-weight:600;text-shadow:0 2px 20px rgba(0,0,0,.6)}
+.q span{color:rgba(255,255,255,.55)}
+.steps{position:absolute;left:0;right:0;bottom:200px;text-align:center}
+.done .q{bottom:auto;top:110px;font-size:30px;font-weight:500;color:rgba(255,255,255,.8)}
+.done .steps{bottom:auto;top:172px}
+.card{left:500px;right:500px;top:262px;height:540px;padding:40px 48px;box-sizing:border-box;display:none}
+.done .card{display:block}
+.ans{font-size:30px;line-height:1.4;margin-bottom:30px;font-weight:500}
+.ans em{font-style:normal;color:#ffd08a}
+.hint{position:absolute;left:0;right:0;bottom:150px;text-align:center;font-size:20px;color:rgba(255,255,255,.6);display:none}
+.done .hint{display:block}
+</style></head><body>
+<img class="wp" src="../../images/wallpapers/moraine-lake.jpg"><div class="scrim"></div>
+<div class="edge et"></div><div class="edge eb"></div><div class="edge el"></div><div class="edge er"></div>
+<div class="clock">8:52 PM</div>
+<div class="q">“Something funny under 2 hours on Netflix tonight<span class="w-only">…</span>”</div>
+<div class="steps" id="steps"></div>
+<div class="glass card">
+ <div class="ans">Here are <em>3 comedies on Netflix under 2 hours</em>, best-rated first. The first one is the shortest at 1 h 38 m.</div>
+ <div class="poster"><div class="art p1"><b>Example Title One</b></div><div class="meta">2023 · 1h 38m</div><span class="badge imdb">IMDb 7.4</span><span class="badge rt">RT 91%</span></div>
+ <div class="poster"><div class="art p2"><b>Example Title Two</b></div><div class="meta">2021 · 1h 52m</div><span class="badge imdb">IMDb 7.1</span><span class="badge rt">RT 86%</span></div>
+ <div class="poster"><div class="art p3"><b>Example Title Three</b></div><div class="meta">2019 · 1h 44m</div><span class="badge imdb">IMDb 6.9</span></div>
+</div>
+<div class="hint">OK to play  ·  ◀ ▶ to browse  ·  hold mic to ask again</div>
+<div class="label">Design A — Edge Glow · mockup, example titles & ratings</div>
+<script src="_state.js"></script><script>
+var W=document.body.className==='working';
+var s=W?[['done','Heard you'],['done','Comedy · under 2h · Netflix'],['live','Searching Netflix — 214 titles'],['','Checking IMDb & RT'],['','Answer']]
+       :[['done','Heard you'],['done','Comedy · under 2h · Netflix'],['done','Netflix: 214 → 12 fit'],['done','IMDb & RT checked'],['done','3 picks · 2.1 s']];
+document.getElementById('steps').innerHTML=s.map(function(x){return '<span class="chip '+x[0]+'"><i></i>'+x[1]+'</span>'}).join('');
+if(!W){var e=document.querySelector('.w-only');e.parentNode.removeChild(e);}
+</script></body></html>

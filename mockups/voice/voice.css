@@ -1,0 +1,35 @@
+/* Voice assistant DESIGN MOCKUPS — static, example content. Not part of the installed app. */
+html,body{margin:0;width:1920px;height:1080px;overflow:hidden;background:#06070b;color:#f5f6f8;
+ font-family:-apple-system,"SF Pro Display","Inter","Helvetica Neue",Roboto,Arial,sans-serif;-webkit-font-smoothing:antialiased}
+.wp{position:absolute;left:0;top:0;width:1920px;height:1080px;object-fit:cover}
+.scrim{position:absolute;left:0;top:0;right:0;bottom:0;background:linear-gradient(180deg,rgba(0,0,0,.25),rgba(0,0,0,.05) 35%,rgba(0,0,0,.55))}
+.glass{position:absolute;border-radius:30px;overflow:hidden;
+ background:linear-gradient(160deg,rgba(255,255,255,.17),rgba(255,255,255,.07) 45%,rgba(20,24,36,.10));
+ -webkit-backdrop-filter:blur(30px) saturate(150%) brightness(.8);backdrop-filter:blur(30px) saturate(150%) brightness(.8);
+ box-shadow:inset 0 1.5px 0 rgba(255,255,255,.30),inset 0 -1px 0 rgba(255,255,255,.06),0 18px 40px -12px rgba(0,0,0,.55)}
+.glass::before{content:"";position:absolute;left:0;top:0;right:0;bottom:0;border-radius:inherit;padding:1.5px;pointer-events:none;
+ background:linear-gradient(145deg,rgba(255,255,255,.6),rgba(255,255,255,.12) 28%,rgba(255,255,255,.04) 55%,rgba(255,255,255,.22));
+ -webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);-webkit-mask-composite:xor;mask-composite:exclude}
+.chip{display:inline-block;border-radius:999px;padding:12px 22px;font-size:22px;font-weight:500;margin-right:12px;
+ background:linear-gradient(160deg,rgba(255,255,255,.16),rgba(255,255,255,.06));
+ -webkit-backdrop-filter:blur(24px);backdrop-filter:blur(24px);
+ box-shadow:inset 0 1px 0 rgba(255,255,255,.28),inset 0 0 0 1px rgba(255,255,255,.08),0 10px 30px -10px rgba(0,0,0,.6);color:rgba(255,255,255,.62)}
+.chip i{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:10px;vertical-align:2px;background:rgba(255,255,255,.35)}
+.chip.done{color:#fff}.chip.done i{background:#5ee08a}
+.chip.live{color:#fff;box-shadow:inset 0 1px 0 rgba(255,255,255,.35),inset 0 0 0 1.5px rgba(160,190,255,.55),0 0 34px rgba(120,150,255,.45)}
+.chip.live i{background:#9fb6ff;box-shadow:0 0 12px #9fb6ff}
+.label{position:absolute;right:36px;bottom:26px;font-size:17px;letter-spacing:.08em;text-transform:uppercase;
+ color:rgba(255,255,255,.75);background:rgba(0,0,0,.45);padding:8px 14px;border-radius:10px}
+.clock{position:absolute;right:70px;top:52px;font-size:30px;font-weight:300;color:rgba(255,255,255,.85)}
+.poster{display:inline-block;vertical-align:top;width:190px;margin-right:22px}
+.poster .art{height:280px;border-radius:18px;position:relative;overflow:hidden;box-shadow:0 14px 30px -10px rgba(0,0,0,.6),inset 0 0 0 1px rgba(255,255,255,.12)}
+.poster .art b{position:absolute;left:16px;bottom:14px;right:14px;font-size:22px;line-height:1.15;font-weight:700}
+.poster .meta{font-size:17px;color:rgba(255,255,255,.65);margin-top:10px}
+.badge{display:inline-block;font-size:15px;font-weight:700;border-radius:7px;padding:3px 8px;margin:8px 6px 0 0}
+.imdb{background:#f5c518;color:#000}.rt{background:rgba(255,255,255,.14);color:#fff}
+.p1{background:linear-gradient(160deg,#ff9a5a,#b4366a 70%,#3a1240)}
+.p2{background:linear-gradient(160deg,#5ad1ff,#3a5bd8 65%,#141a4a)}
+.p3{background:linear-gradient(160deg,#ffe07a,#e0743a 60%,#4a1a10)}
+.p4{background:linear-gradient(160deg,#9cf2c0,#2f9a8a 60%,#0d2a30)}
+.netflix{color:#e50914;font-weight:800;letter-spacing:.02em}
+.mono{font-family:"SF Mono",Menlo,Consolas,monospace}

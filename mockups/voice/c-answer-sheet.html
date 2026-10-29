@@ -1,0 +1,46 @@
+<!doctype html><html><head><meta charset="utf-8"><link rel="stylesheet" href="voice.css"><style>
+.amb{position:absolute;left:96px;top:80px}.amb .t{font-size:150px;font-weight:200;letter-spacing:-4px;line-height:1}.amb .d{font-size:30px;color:rgba(255,255,255,.75);margin-top:10px}
+.sheet{left:60px;right:60px;bottom:-30px;height:640px;padding:36px 56px 0;box-sizing:border-box;border-radius:40px}
+.working .sheet{height:380px}
+.grab{position:absolute;left:50%;top:14px;width:70px;margin-left:-35px;height:6px;border-radius:3px;background:rgba(255,255,255,.35)}
+.q{font-size:34px;font-weight:600}.q small{font-size:22px;color:rgba(255,255,255,.55);font-weight:400;margin-left:14px}
+.strip{margin-top:20px;padding:14px 20px;border-radius:18px;background:rgba(0,0,0,.18);box-shadow:inset 0 0 0 1px rgba(255,255,255,.08);font-size:20px;color:rgba(255,255,255,.75)}
+.strip .src{display:inline-block;padding:5px 12px;border-radius:999px;background:rgba(255,255,255,.12);margin-left:8px;color:#fff;font-size:18px}
+.strip .exp{float:right;color:rgba(255,255,255,.5)}
+.steps{margin-top:14px}.steps div{font-size:22px;padding:8px 0;color:rgba(255,255,255,.5)}
+.steps div.ok{color:#fff}.steps div.ok::before{content:"✓  ";color:#5ee08a;font-weight:800}
+.steps div.live{color:#fff}.steps div.live::before{content:"●  ";color:#9fb6ff;text-shadow:0 0 10px #9fb6ff}
+.steps div.todo::before{content:"○  "}
+.ans{font-size:28px;line-height:1.4;margin:24px 0 18px;max-width:1500px}
+.posters .poster{width:170px}.posters .art{height:250px}
+.fu{position:absolute;right:56px;top:300px;width:420px}
+.fu h4{margin:0 0 14px;font-size:18px;letter-spacing:.12em;text-transform:uppercase;color:rgba(255,255,255,.5);font-weight:600}
+.fu .chip{display:block;margin:0 0 14px;color:#fff;font-size:22px}
+.fu .chip.f{box-shadow:inset 0 0 0 2px rgba(255,255,255,.75),0 12px 34px -8px rgba(0,0,0,.6);background:rgba(255,255,255,.26)}
+.working .real{display:none}.done .steps{display:none}
+</style></head><body>
+<img class="wp" src="../../images/wallpapers/santorini.jpg"><div class="scrim"></div>
+<div class="amb"><div class="t">8:52</div><div class="d">Wednesday, October 28 · 58°</div></div>
+<div class="glass sheet"><div class="grab"></div>
+ <div class="q">“Something funny under 2 hours on Netflix tonight”<small id="sm"></small></div>
+ <div class="strip" id="strip"></div>
+ <div class="steps" id="steps"></div>
+ <div class="real">
+  <div class="ans">Four comedies on <span class="netflix">NETFLIX</span> under 2 hours. Best-reviewed first.</div>
+  <div class="posters">
+   <div class="poster"><div class="art p1"><b>Example Title One</b></div><div class="meta">1h 38m</div><span class="badge imdb">IMDb 7.4</span><span class="badge rt">RT 91%</span></div>
+   <div class="poster"><div class="art p2"><b>Example Title Two</b></div><div class="meta">1h 52m</div><span class="badge imdb">IMDb 7.1</span><span class="badge rt">RT 86%</span></div>
+   <div class="poster"><div class="art p3"><b>Example Title Three</b></div><div class="meta">1h 44m</div><span class="badge imdb">IMDb 6.9</span></div>
+   <div class="poster"><div class="art p4"><b>Example Title Four</b></div><div class="meta">1h 31m</div><span class="badge imdb">IMDb 6.8</span><span class="badge rt">RT 79%</span></div>
+  </div>
+  <div class="fu"><h4>Ask next</h4><span class="chip f">Only ones I haven’t seen</span><span class="chip">Something shorter</span><span class="chip">Show me HBO Max too</span></div>
+ </div>
+</div>
+<div class="label" style="bottom:auto;top:30px">Design C — Answer Sheet · mockup, example titles & ratings</div>
+<script src="_state.js"></script><script>
+var W=document.body.className==='working';
+document.getElementById('sm').textContent=W?'working…':'2.1 s';
+document.getElementById('strip').innerHTML=W?'Working · 2 of 4 steps<span class="exp">▾ live</span>'
+ :'4 steps · sources <span class="src">TMDB</span><span class="src">OMDb · IMDb</span><span class="src">Rotten Tomatoes</span><span class="exp">▸ Up to expand</span>';
+document.getElementById('steps').innerHTML=W?'<div class="ok">Understood: comedy · under 2 h · Netflix (US)</div><div class="ok">TMDB: 214 comedies on Netflix → 12 under 2 h</div><div class="live">Checking IMDb & RT for 12 titles…</div><div class="todo">Writing the answer</div>':'';
+</script></body></html>

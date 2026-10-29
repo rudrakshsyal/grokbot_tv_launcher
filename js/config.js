@@ -31,7 +31,13 @@ window.RH_CONFIG = {
     motion: false,            // true: very slow Ken Burns zoom/pan (transform-only). Off for snappier input
     shuffle: false,           // false: continue in order from where the last session stopped
     showCaption: true,        // subtle location caption under the greeting
-    showCredit: false         // false: credit shown on demand (Yellow key or the small (i) next to the caption); see CREDITS.md
+    showCredit: false,        // false: credit shown on demand (Yellow key or the small (i) next to the caption); see CREDITS.md
+    /* Day/night preference (ids from js/wallpapers.js). After sunset rotation only uses `night` photos, by day only
+     * `day` photos; an id in both (or in neither) fits any time. Empty lists = no preference (the tint still applies). */
+    timeOfDay: {
+      day: ['moraine-lake', 'matterhorn', 'maldives', 'geiranger', 'yosemite', 'yellowstone', 'na-pali', 'denali'],
+      night: ['santorini', 'arashiyama', 'denali']
+    }
   },
 
   back: {
@@ -61,6 +67,7 @@ window.RH_CONFIG = {
     snapshotMaxAgeDays: 21,   // hide snapshot picks once they are older than this
     detailLookups: 30,        // TMDB detail calls per refresh, split between movies and shows (Movies | Shows tabs)
     timeoutMs: 7000,
+    upNextDays: 0,            // Up next: only shows watched within N days (0 = any age)
     resumeMax: 2,             // Resume Watching items (real unfinished Trakt content only; the row is hidden otherwise)
     artCacheMax: 18,          // posters kept as data: URLs so home paints with artwork even offline
     /* Platform pages (needs a TMDB key): Discover shows one streaming service at a time — Top 3 Shows / Top 3 Movies on
@@ -104,6 +111,39 @@ window.RH_CONFIG = {
     keepScreenOn: true
   },
 
+  /* Day / night look: day between sunrise and sunset (Open-Meteo, same weather request: daily=sunrise,sunset;
+   * fallback times when there's no forecast). Night = a slow opacity crossfade to a cool, dimmer tint over the
+   * wallpaper and glass, softer text, and night-tagged wallpapers (wallpaper.timeOfDay). Re-checked every checkMin. */
+  dayNight: {
+    enabled: true,
+    fallbackSunrise: '06:30',
+    fallbackSunset: '18:30',
+    checkMin: 3,
+    fadeMs: 4000              // crossfade length for the tint, text and wallpaper switch
+  },
+
+  /* Picks screensaver: after `minutes` without a key on Ambient (never while Discover, the dock or an overlay is open),
+   * full-screen TMDB backdrops of the current picks (backdropSize 'original' or 'w1280'; nothing smaller is used) with
+   * a slow Ken Burns drift (transform only), a big glass clock and the title + IMDb/RT badges. OK opens the title
+   * (same as "Open in <App>"); any other key just closes it. No real backdrops -> no screensaver (idle mode only). */
+  screensaver: {
+    enabled: true,
+    minutes: 5,
+    slideSec: 14,             // each backdrop
+    fadeMs: 2200,             // crossfade between backdrops (opacity)
+    backdropSize: 'original'
+  },
+
+  /* TV inputs + Settings (second dock row, Down from the apps). HDMI ports come from tizen.systeminfo VIDEOSOURCE
+   * (only connected ones when the TV reports connection state) and switching uses tizen.tvwindow.setSource
+   * (privilege tv.window). Settings opens Samsung's settings via the 'setting' app control (fallback: settingsAppIds). */
+  inputs: {
+    enabled: true,
+    settings: true,
+    viewerAppId: 'org.tizen.tv-viewer',      // shows the switched source full screen
+    settingsAppIds: ['org.tizen.menu']       // tried in order if the setting app control fails
+  },
+
   /* API keys (all free, all optional). See README "Discover data & keys".
    *  TMDB : https://www.themoviedb.org/settings/api  (v3 API key OR v4 read token). Gives live trending,
    *         where to watch (US), runtimes and YouTube trailers
@@ -128,6 +168,11 @@ window.RH_CONFIG = {
     traktTokenCreatedAt: 0,
     traktTokenExpiresIn: 0
   },
+
+  /* Voice assistant (js/voice.js): the relay runs on your Mac (relay/README.md). Set relay to your Mac's address, e.g.
+   * 'http://YOUR-MAC-IP:8787' (give the Mac a DHCP reservation so it never changes). Empty, or not reachable -> the feature
+   * stays completely hidden. Play/Pause on the remote opens the overlay; the phone page is the microphone. */
+  voice: { enabled: true, relay: '' },
 
   /* Optional overrides of app IDs without editing apps.js, e.g.
    * { peacock: ['abcDEF1234.Peacock'] } — tried first. */
