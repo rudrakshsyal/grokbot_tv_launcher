@@ -1,0 +1,6 @@
+certs/
+.secrets/
+logs/
+reports/
+.env.sh
+*.env

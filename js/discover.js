@@ -447,7 +447,9 @@
 
   /* ---------- Resume Watching (Trakt): only real unfinished content ----------
    *   1. paused playback (/sync/playback, < 95 %), newest first
-   *   2. shows in progress: the next unwatched episode of a show watched in the last 45 days (/shows/:id/progress/watched)
+   *   2. "Up next": the next unwatched episode of each started-but-unfinished show (/sync/watched/shows +
+   *      /shows/:id/progress/watched), most recently watched first; optional age limit discover.upNextDays (0 = any)
+   *   Cached in localStorage 'rh.dsc.cw' (10 min; the cache is also used when Trakt is unreachable).
    * Empty when nothing is unfinished — the row is then hidden and the status line says so. */
   function continueWatching() {
     if (MOCK) return Promise.resolve([
@@ -476,13 +478,15 @@
           kind: isEp ? 'tv' : 'movie', tid: show.ids && show.ids.tmdb, key: show.ids && show.ids.trakt };
       });
       var have = {}; items.forEach(function (x) { have[x.key] = 1; });
-      var recent = (r[1] || []).filter(function (w) { return w.show && w.show.ids && !have[w.show.ids.trakt] && Date.now() - Date.parse(w.last_watched_at) < 45 * 864e5; })
-        .sort(function (a, b) { return Date.parse(b.last_watched_at) - Date.parse(a.last_watched_at); }).slice(0, 3);
+      var days = D.upNextDays || 0;   // 0 = any age (in-progress shows may have been last watched months or years ago)
+      var recent = (r[1] || []).filter(function (w) { return w.show && w.show.ids && !have[w.show.ids.trakt] && (!days || Date.now() - Date.parse(w.last_watched_at) < days * 864e5); })
+        .sort(function (a, b) { return Date.parse(b.last_watched_at) - Date.parse(a.last_watched_at); }).slice(0, 8);
       return Promise.all(recent.map(function (w) {
         return trakt('/shows/' + w.show.ids.trakt + '/progress/watched?hidden=false&specials=false').then(function (pg) {
           if (!pg || !pg.next_episode || !(pg.completed > 0) || pg.completed >= pg.aired) return null;
-          return { it: { id: 'trakt:next:' + w.show.ids.trakt, title: w.show.title, progress: pg.completed / pg.aired, sub: 'Next \u00b7 ' + ep(pg.next_episode),
-            remainingMin: null, app: null, at: Date.parse(w.last_watched_at) }, kind: 'tv', tid: w.show.ids.tmdb };
+          return { it: { id: 'trakt:next:' + w.show.ids.trakt, title: w.show.title, progress: pg.completed / pg.aired, sub: 'Up next \u00b7 S' + pg.next_episode.season + ' E' + pg.next_episode.number +
+            (pg.next_episode.title ? ' \u00b7 \u201c' + pg.next_episode.title + '\u201d' : ''), upNext: true,
+            done: pg.completed, aired: pg.aired, remainingMin: null, app: null, at: Date.parse(w.last_watched_at) }, kind: 'tv', tid: w.show.ids.tmdb };
         }, function () { return null; });
       })).then(function (next) {
         var all = items.concat(next.filter(Boolean)).slice(0, max);
@@ -569,6 +573,7 @@
         var c = { id: id, tmdbId: x.id, kind: kind, title: x.title || x.name, year: parseInt((x.release_date || x.first_air_date || '').slice(0, 4), 10) || null,
           rank: i + 1, lang: x.original_language || null, genres: (x.genre_ids || []).map(function (g) { return GENRES[g]; }).filter(Boolean),
           plot: x.overview || null, poster: x.poster_path ? 'https://image.tmdb.org/t/p/w342' + x.poster_path : null, app: key, popularity: x.popularity || 0,
+          backdrop: x.backdrop_path ? 'https://image.tmdb.org/t/p/w780' + x.backdrop_path : null,   // also the screensaver art (js/saver.js)
           rating: x.vote_count >= 50 ? Math.round(x.vote_average * 10) / 10 : null, ratingSource: x.vote_count >= 50 ? 'TMDB' : null, ratingVotes: null, rt: null };
         if (!okForHouse(c)) return;
         seen[id] = c; byKind[kind].push(c);
@@ -583,6 +588,7 @@
           if (d.genres && d.genres.length) c.genres = d.genres.map(function (g) { return g.name; });
           c.lang = d.original_language || c.lang;
           if (!c.poster && d.poster_path) c.poster = 'https://image.tmdb.org/t/p/w342' + d.poster_path;
+          if (!c.backdrop && d.backdrop_path) c.backdrop = 'https://image.tmdb.org/t/p/w780' + d.backdrop_path;
           c.runtimeMin = c.kind === 'movie' ? d.runtime || null : ((d.episode_run_time || [])[0] || (d.last_episode_to_air || {}).runtime || null);
           c.seasons = c.kind === 'tv' ? d.number_of_seasons || null : null;
           c.imdbId = d.imdb_id || (d.external_ids || {}).imdb_id || null;

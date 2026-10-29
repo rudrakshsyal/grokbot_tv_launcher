@@ -39,5 +39,8 @@ if os.path.exists(tok):
 open(p, 'w').write(s)
 print('keys injected into dist/js/config.js: ' + (', '.join(used) or 'none (offline snapshot mode)'))
 PY
+# Guard: the voice relay (Mac-side Node server) and secrets never go into the TV package.
+for bad in relay .secrets tools mockups; do [ ! -e "dist/$bad" ] || { echo "make-dist: dist/$bad must not be packaged" >&2; exit 1; }; done
+if find dist -name '*.env' -o -name 'trakt-tokens.json' -o -name 'mock-session.json' | grep -q .; then echo "make-dist: secret/dev file in dist" >&2; exit 1; fi
 echo "dist/ ready ($(du -sh dist | cut -f1)):"; find dist -type f | sort | sed 's/^/  /'
 echo "NOTE: dist/ now contains your API keys. Don't publish dist/ or the .wgt." 

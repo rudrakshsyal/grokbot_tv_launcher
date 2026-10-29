@@ -61,10 +61,10 @@
   }
 
   /* ---------------- rows ---------------- */
-  // y = vertical order on screen. info(0) · cw(1) · platform(1.8) · tabs(1.9) · picks(2) · acts(2.5) · dock(3)
+  // y = vertical order on screen. info(0) · cw(1) · platform(1.8) · tabs(1.9) · picks(2) · acts(2.5) · dock(3) · inputs(3.5)
   var rows = [];
   var focus = { r: 0, i: 0 };
-  var dockRow = null, infoRow = null, traktRow = null, cwRow = null, platRow = null, refreshRow = null, picksRow = null, actsRow = null;
+  var dockRow = null, inputsRow = null, infoRow = null, traktRow = null, cwRow = null, platRow = null, refreshRow = null, picksRow = null, actsRow = null;
   var discoverOn = false;
 
   function hexToRgba(hex, a) {
@@ -93,10 +93,46 @@
     main.forEach(function (k) { html += tileHTML(k, 'lg'); });
     if (main.length && extra.length) html += '<div class="dock-div"></div>';
     extra.forEach(function (k) { html += tileHTML(k, 'sm'); });
-    row.innerHTML = html + '</div></div>';
+    row.innerHTML = html + '</div><div class="dock-in" id="dockIn"></div></div>';
     $('rows').appendChild(row);
     var items = [].slice.call(row.querySelectorAll('.tile'));
     dockRow = mkRow({ el: row, kind: 'apps', items: items, data: items.map(function (el) { return el.getAttribute('data-app'); }), y: 3 });
+    inputsRow = mkRow({ el: $('dockIn'), kind: 'inputs', y: 3.5 });
+  }
+  /* Inputs row under the dock apps (js/inputs.js): only HDMI ports the TV reports (connected ones when it says so), plus
+   * a TV Settings chip. Nothing at all in the desktop preview, except the labelled ?inputs=mock used by tools/preview. */
+  var HDMI_IC = '<svg class="in-ic" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round" d="M3 8.5h18v4.2l-2.2 2.8H5.2L3 12.7z"/><path stroke="currentColor" stroke-width="1.5" d="M7 11h10"/></svg>';
+  var GEAR_IC = '<svg class="in-ic" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-width="1.6" d="M12 8.6a3.4 3.4 0 1 0 0 6.8 3.4 3.4 0 0 0 0-6.8z"/><path fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" d="M10.3 3h3.4l.5 2.4 1.7.9 2.3-.9 1.7 2.9-1.8 1.6v2.2l1.8 1.6-1.7 2.9-2.3-.9-1.7.9-.5 2.4h-3.4l-.5-2.4-1.7-.9-2.3.9-1.7-2.9 1.8-1.6v-2.2L4.1 8.3l1.7-2.9 2.3.9 1.7-.9z"/></svg>';
+  function renderInputs(res) {
+    if (!inputsRow) return;
+    var ports = (res && res.ports) || [], data = [], html = '';
+    if (res && res.state === 'mock') html += '<div class="in-mock">Preview \u00b7 mock inputs</div>';
+    ports.forEach(function (p) {
+      data.push({ type: 'port', port: p });
+      html += '<div class="in-chip" data-k="' + esc(p.key) + '"><div class="in-bg"></div>' + HDMI_IC + '<span class="in-t">' + esc(p.title) + '</span>' +
+        (p.sub ? '<span class="in-s">' + esc(p.sub) + '</span>' : '') + '</div>';
+    });
+    if (window.RH_Inputs && RH_Inputs.settingsAvailable() && (CFG.inputs || {}).settings !== false) { data.push({ type: 'settings' }); html += '<div class="in-chip in-set"><div class="in-bg"></div>' + GEAR_IC + '<span class="in-t">Settings</span></div>'; }
+    if (data.length && ports.length) html = '<div class="in-lab">Inputs</div>' + html;
+    var onRow = rows[focus.r] === inputsRow, fi = focus.i;
+    inputsRow.el.innerHTML = html;
+    inputsRow.items = [].slice.call(inputsRow.el.querySelectorAll('.in-chip'));
+    inputsRow.data = data;
+    body.classList.toggle('has-inputs', data.length > 0);
+    if (onRow) { if (data.length) setFocus(rows.indexOf(inputsRow), Math.min(fi, data.length - 1), true); else setFocus(rows.indexOf(dockRow), lastDockI, true); }
+    resetCenters();
+    if (window.RH_Wallpaper && RH_Wallpaper.placeGlass && dockOn) RH_Wallpaper.placeGlass($('dockBg'));
+  }
+  function startInputs() {
+    if (!window.RH_Inputs || (CFG.inputs || {}).enabled === false || params.inputs === '0') return;
+    RH_Inputs.detect(renderInputs);
+    RH_Inputs.watch(renderInputs);
+  }
+  function activateInput(d) {
+    if (!d) return;
+    var cb = function (ok, msg) { if (!ok && msg) toast(msg, 3000); };
+    if (d.type === 'settings') return RH_Inputs.openSettings(cb);
+    RH_Inputs.select(d.port, cb);
   }
   /* Small "i" next to the location caption: photo credit on demand (also Yellow key). */
   function buildInfo() {
@@ -212,9 +248,9 @@
       var app = APPS[c.app];
       html += '<div class="cwi" data-i="' + i + '" style="' + (app ? brandVars(app) : '') + '"><div class="cwi-bg"></div><div class="cwi-fx"></div>' +
         '<div class="cwi-bar"></div><div class="cwi-t">' + esc(c.title) + (c.mock ? '<span class="mockchip">MOCK</span>' : '') + '</div>' +
-        '<div class="cwi-a">' + (app ? 'Open ' + esc(app.name) + ' to resume \u21b5' : 'Provider unknown') + '</div>' +
+        '<div class="cwi-a">' + (app ? 'Open ' + esc(app.name) + (c.upNext ? ' to watch next' : ' to resume') + ' \u21b5' : 'Provider unknown') + '</div>' +
         '<div class="cwi-s">' + esc(c.sub || '') + '</div>' +
-        '<div class="cwi-r">' + [c.remainingMin ? c.remainingMin + ' min left' : null, app ? app.name : null].filter(Boolean).join(' \u00b7 ') + '</div>' +
+        '<div class="cwi-r">' + [c.remainingMin ? c.remainingMin + ' min left' : null, c.upNext && c.aired ? c.done + ' of ' + c.aired + ' watched' : null, app ? app.name : null].filter(Boolean).join(' \u00b7 ') + '</div>' +
         '<div class="cwi-p"><i style="width:' + Math.round((c.progress || 0) * 100) + '%"></i></div></div>';
     });
     $('cwTrack').innerHTML = html;
@@ -241,13 +277,16 @@
     var x = t.kind === 'tv' && t.seasons ? t.seasons + (t.seasons === 1 ? ' season' : ' seasons') : runtimeShort(t);
     return [t.year, x].filter(Boolean).join(' \u00b7 ');
   }
-  function cardHTML(p, idx) {
-    var t = p.item, app = APPS[t.app];
+  function rateHTML(t) {
     var src = t.ratingSource, rate = t.rating ? '<div class="rate' + (src === 'TMDB' ? ' tmdb' : src === 'MOCK' ? ' mock' : '') + '"><b>' +
       esc(src === 'TMDB' ? 'TMDB' : src) + '</b> <span>' + t.rating.toFixed(1) + '</span></div>' : '';
     /* Rotten Tomatoes critics score (OMDb) — only when it exists; fresh tomato >= 60 %, green splat below */
     if (t.rt != null) rate += '<div class="rate rt' + (t.rt >= 60 ? '' : ' rotten') + '">' + (t.rt >= 60 ? TOMATO : SPLAT) + '<span>' + t.rt + '%</span></div>';
-    if (rate) rate = '<div class="rates">' + rate + '</div>';
+    return rate ? '<div class="rates">' + rate + '</div>' : '';
+  }
+  function cardHTML(p, idx) {
+    var t = p.item, app = APPS[t.app];
+    var rate = rateHTML(t);
     /* Placeholder underneath; poster, then backdrop, as stacked backgrounds: a layer that fails to load just doesn't paint. */
     var imgs = [DSC.art(t.poster), t.backdrop].filter(Boolean).map(function (u) { return 'url(\'' + esc(u) + '\')'; }).join(',');
     var art = '<div class="card-art"><div class="ph" style="background:linear-gradient(165deg,hsl(' + (idx * 97 + 200) % 360 + ',45%,38%),hsl(' + (idx * 97 + 240) % 360 + ',50%,14%))"><b>' +
@@ -368,7 +407,11 @@
     if (!dockOn) { dockOn = true; body.classList.add('dock-on'); if (window.RH_Wallpaper && RH_Wallpaper.placeGlass) RH_Wallpaper.placeGlass($('dockBg')); }
     armDockHide();
   }
-  function hideDock() { clearTimeout(dockTimer); if (DOCK_PIN && !discoverOn && !idleOn) return; dockOn = false; body.classList.remove('dock-on'); }
+  function hideDock() {
+    clearTimeout(dockTimer); if (DOCK_PIN && !discoverOn && !idleOn) return;
+    if (inputsRow && rows[focus.r] === inputsRow) setFocus(rows.indexOf(dockRow), lastDockI, true);   // the inputs row lives inside the dock
+    dockOn = false; body.classList.remove('dock-on');
+  }
   function armDockHide() {
     clearTimeout(dockTimer);
     if (DOCK_PIN) return;
@@ -398,8 +441,8 @@
     var k = row.kind;
     if (k === 'trakt' || k === 'cw' || k === 'plat' || k === 'tabs' || k === 'picks' || k === 'acts') setDiscover(true);
     if (k === 'tabs' && row.data[i] !== 'refresh') switchTab(row.data[i]);            // Left/Right on the tab row switches tabs
-    if (row === dockRow && prevRow && prevRow !== dockRow && !silent) showDock();
-    if (k === 'apps') setDiscover(false);
+    if ((row === dockRow || row === inputsRow) && prevRow && prevRow !== dockRow && prevRow !== inputsRow && !silent) showDock();
+    if (k === 'apps' || k === 'inputs') setDiscover(false);
     body.classList.toggle('info-focus', k === 'info');
     if (!silent && row === dockRow) { clearTimeout(saveTimer); saveTimer = setTimeout(function () { store('rh.focus', String(i)); }, 1000); }
   }
@@ -407,6 +450,7 @@
     if (!rw.items.length) return false;
     if (rw.kind === 'info') return body.classList.contains('has-wp');
     if (rw.kind === 'acts') return from === picksRow || from === actsRow;
+    if (rw.kind === 'inputs') return from === dockRow && dockOn && !discoverOn;
     if (rw.kind === 'tabs' || rw.kind === 'plat') return from === picksRow || from === refreshRow || from === platRow || from === cwRow || from === traktRow;
     return true;
   }
@@ -543,6 +587,7 @@
     press(el);
     if (row.kind === 'apps') return launchApp(row.data[focus.i]);
     if (row.kind === 'info') return toggleCredit();
+    if (row.kind === 'inputs') return activateInput(row.data[focus.i]);
     if (row.kind === 'plat') return launchApp(platKey());
     if (row.kind === 'tabs') { if (row.data[focus.i] === 'refresh') { hideHint(); return refreshPicks(); } return; }
     if (row.kind === 'trakt') return traktFlow ? toast('Waiting for trakt.tv/activate\u2026', 2000) : startTraktConnect();
@@ -594,6 +639,44 @@
     idleClear();
     if (IDLE.enabled === false || params.idle === '0') return;
     idleTimers.push(setTimeout(enterIdle, (IDLE.minutes || 10) * idleUnit));
+    armSaver();
+  }
+  /* ---------------- picks screensaver (js/saver.js) ----------------
+   * After screensaver.minutes without a key, on the plain ambient home only (never over Discover, the dock, the voice
+   * overlay, a toast or the photo credit): full-screen backdrops of the current real picks. OK opens the title the same
+   * way a pick card does; any other key just closes it (its action is not performed). Snapshot/mock picks: no saver. */
+  var SAVER = CFG.screensaver || {}, saverTimer = null;
+  function armSaver(ms) {
+    clearTimeout(saverTimer);
+    if (SAVER.enabled === false || params.saver === '0' || !window.RH_Saver || (window.RH_Saver.on)) return;
+    saverTimer = setTimeout(function () { trySaver(false); }, ms || (SAVER.minutes || 5) * idleUnit);
+  }
+  function saverItems() {
+    if (picksState.mode === 'mock' || picksState.mode === 'none') return [];
+    return picksState.picks.filter(function (p) { return p.item && p.item.backdrop && RH_Saver.hires(p.item.backdrop); }).map(function (p) {
+      var t = p.item, open = p.acts && p.acts[0] && p.acts[0][0] === 'open';
+      return { title: t.title, backdrop: t.backdrop, badges: rateHTML(t), appName: open && APPS[t.app] ? APPS[t.app].name : '', data: p };
+    });
+  }
+  function saverBlocked() {
+    return document.hidden || discoverOn || dockOn || launching || (window.RH_Voice && RH_Voice.open) || body.classList.contains('voice-on') ||
+      $('toast').className.indexOf('show') >= 0 || (body.classList.contains('show-credit') && !(CFG.wallpaper || {}).showCredit) || rows[focus.r] !== dockRow;
+  }
+  function trySaver(force) {
+    if (!window.RH_Saver || RH_Saver.on || RH_Saver.pending) return;
+    var list = saverItems();
+    if (!list.length || (!force && saverBlocked())) return armSaver(idleUnit);     // check again in a minute
+    hideHint();
+    RH_Saver.start(list).then(function (shown) {
+      if (!shown) return armSaver(idleUnit);
+      if (saverBlocked() && !force) return exitSaver();                            // something opened while the art loaded
+      if (window.RH_Wallpaper && RH_Wallpaper.pause) RH_Wallpaper.pause(true);
+    });
+  }
+  function exitSaver() {
+    if (!window.RH_Saver || (!RH_Saver.on && !RH_Saver.pending)) return;
+    RH_Saver.stop();
+    if (window.RH_Wallpaper && RH_Wallpaper.pause) RH_Wallpaper.pause(false);
   }
   function setDim(brightness, ms) {
     var d = $('dim'); if (!d) return;
@@ -685,7 +768,9 @@
       shuffle: !!W.shuffle,
       showCaption: W.showCaption !== false,
       showCredit: W.showCredit !== false,
-      start: params.wp
+      start: params.wp,
+      pref: window.RH_DayNight ? RH_DayNight.pref() : null,                  // day / night photo set (js/daynight.js)
+      tod: W.timeOfDay
     });
     if (!motion) body.classList.add('wp-still');
     RH_Wallpaper.addGlass($('dockBg'));
@@ -712,14 +797,24 @@
   /* ---------------- keys ---------------- */
   function registerKeys() {
     if (!IS_TIZEN || !tizen.tvinputdevice) return;
-    ['ColorF0Red', 'ColorF1Green', 'ColorF2Yellow', 'ColorF3Blue', 'ChannelUp', 'ChannelDown', 'MediaFastForward', 'MediaRewind'].forEach(function (k) {
+    ['ColorF0Red', 'ColorF1Green', 'ColorF2Yellow', 'ColorF3Blue', 'ChannelUp', 'ChannelDown', 'MediaFastForward', 'MediaRewind', 'MediaPlayPause', 'MediaPlay', 'Info'].forEach(function (k) {
       try { tizen.tvinputdevice.registerKey(k); } catch (e) { log('registerKey', k, e); }
     });
   }
   function onKey(e) {
     var k = e.keyCode;
+    if (window.RH_Saver && RH_Saver.on) {                                 // screensaver: OK opens the title, any other key only closes it
+      e.preventDefault(); if (e.stopImmediatePropagation) e.stopImmediatePropagation();
+      var sv = RH_Saver.current;
+      exitSaver();
+      if (idleOn) wake(); else armIdle();
+      if (k === KEY.ENTER && !e.repeat && sv) doAct(sv.data, sv.appName ? 'open' : null);
+      return;
+    }
+    if (window.RH_Saver && RH_Saver.pending) exitSaver();               // art still loading: cancel, the key acts normally
     if (idleOn) { e.preventDefault(); wake(); return; }                 // the first key only wakes
     armIdle();
+    if (window.RH_Voice && window.RH_Voice.onKey(e)) return;            // voice overlay (js/voice.js) owns the remote while open
     if (hintArmed && k !== KEY.UP) hideHint();
     var arrow = k === KEY.LEFT || k === KEY.RIGHT || k === KEY.UP || k === KEY.DOWN || k === KEY.ENTER;
     if (arrow && !dockOn && !discoverOn && rows[focus.r] === dockRow) { e.preventDefault(); showDock(); return; }   // first press only reveals the dock
@@ -782,6 +877,7 @@
     setFocus(rows.indexOf(dockRow), lastDockI, true);
     if (DOCK_PIN) { dockOn = true; body.classList.add('dock-on'); }
     document.addEventListener('keydown', onKey);
+    if (window.RH_DayNight) RH_DayNight.start();                     // body.day / body.night before the first photo
     startWallpaper();
     armIdle();
     registerKeys();
@@ -791,6 +887,7 @@
         if (!params.noresolve) getAppsInfo().then(matchInstalled, function (e) { log('getAppsInfo failed', e); });
         loadWebapis();
         if (window.RH_Weather && params.wx !== '0') RH_Weather.start($('wx'));
+        startInputs();
         if (DSC && DSC.enabled && params.discover !== '0') {
           armHint();
           loadPicks({});
@@ -799,18 +896,30 @@
       });
     }, 0); });
     document.addEventListener('visibilitychange', function () {
-      if (document.hidden) { idleClear(); screenSaver(true); return; }
+      if (document.hidden) { idleClear(); clearTimeout(saverTimer); exitSaver(); screenSaver(true); return; }
       tick(); launching = false; screenSaver(false);
       if (idleOn) return wake();                               // back from an app: straight to the normal home
       armIdle();
       if (DSC && DSC.enabled && !discoverOn) armHint();        // "wake": one hint line ("3 picks for tonight ↑"); Discover never opens by itself
     });
+    // Small API for js/voice.js: open an app, or show one service's picks in Discover
+    window.RH_Home = { launchApp: launchApp, wake: function () { exitSaver(); if (idleOn) wake(); },
+      showPlatform: function (key) {
+        var i = plats.indexOf(key);
+        if (i < 0) return launchApp(key);                      // not a Discover page (e.g. YouTube): just open it
+        var d = i - platI; platI = i; pendingPicks = null; paintPlat();
+        loadPicks({ keepIdx: 0, platSwitch: true, focusPicks: true });
+        if (!discoverOn && platRow && platRow.items.length) setFocus(rows.indexOf(platRow), 0);
+        return d;
+      } };
     // Debug hooks for automated preview/testing
     window.RH_debug = { focus: focus, rows: rows, setFocus: setFocus, launchApp: launchApp, installed: installed, toggleCredit: toggleCredit,
       get discoverOn() { return discoverOn; }, rowIndex: function (k) { for (var i = 0; i < rows.length; i++) if (rows[i].kind === k) return i; return -1; },
       picks: function () { return picksState; }, get platform() { return platMode() ? platKey() : null; }, platforms: function () { return plats.slice(); },
       switchPlatform: switchPlatform, reloadPicks: loadPicks, refresh: refreshPicks, session: function () { return sessionIds; },
-      get idle() { return idleOn; }, get dockOn() { return dockOn; }, get tab() { return tab; }, switchTab: switchTab, enterIdle: enterIdle, wake: wake, traktStatus: function () { return $('tstat').textContent; } };
+      get idle() { return idleOn; }, get dockOn() { return dockOn; }, get tab() { return tab; }, switchTab: switchTab, enterIdle: enterIdle, wake: wake, traktStatus: function () { return $('tstat').textContent; },
+      saver: function (force) { trySaver(force !== false); }, saverItems: function () { return saverItems().length; }, exitSaver: exitSaver,
+      get saverOn() { return !!(window.RH_Saver && RH_Saver.on); }, inputs: function () { return inputsRow ? inputsRow.data : []; } };
   }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot); else boot();
 })();

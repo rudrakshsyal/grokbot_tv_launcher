@@ -8,7 +8,7 @@
   function jset(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} }
   function url() {
     return 'https://api.open-meteo.com/v1/forecast?latitude=' + W.lat + '&longitude=' + W.lon +
-      '&current=temperature_2m,weather_code,is_day&daily=weather_code,temperature_2m_max,temperature_2m_min' +
+      '&current=temperature_2m,weather_code,is_day&daily=weather_code,temperature_2m_max,temperature_2m_min,sunrise,sunset' +
       '&temperature_unit=fahrenheit&timezone=' + encodeURIComponent(W.timezone || 'America/Los_Angeles') + '&forecast_days=3';
   }
   function get(cb) {
@@ -71,17 +71,33 @@
   function update(el) {
     var c = jget('rh.wx'), every = (W.refreshMin || 30) * 6e4;
     render(el);
-    if (c && Date.now() - c.t < every) { clearTimeout(timer); timer = setTimeout(function () { update(el); }, every - (Date.now() - c.t) + 1000); return; }
+    // a cache from before sunrise/sunset were requested is refetched once (same single request)
+    if (c && Date.now() - c.t < every && c.d && c.d.daily && c.d.daily.sunrise) { clearTimeout(timer); timer = setTimeout(function () { update(el); }, every - (Date.now() - c.t) + 1000); return; }
     get(function (d) {
       if (d && d.current && typeof d.current.temperature_2m === 'number') {
         var today = (d.current.time || '').slice(0, 10) || localISO();
         jset('rh.wx', { t: Date.now(), today: today, d: d });
       }
       render(el);
+      if (window.RH_DayNight && RH_DayNight.update) RH_DayNight.update();   // new sunrise/sunset -> re-evaluate now
       clearTimeout(timer); timer = setTimeout(function () { update(el); }, d ? every : 5 * 6e4);   // failed: retry in 5 min, stay hidden/old
     });
   }
+  /* Today's sunrise/sunset as minutes after local midnight, from the cached forecast (the same Open-Meteo request,
+   * daily=sunrise,sunset, local times in weather.timezone). Sun times move ~2 min/day, so a forecast up to 3 days old
+   * is still used (today's row if present). null when there is no usable data -> RH_DayNight falls back to fixed times. */
+  function hm(iso) { var m = /T(\d\d):(\d\d)/.exec(iso || ''); return m ? +m[1] * 60 + +m[2] : null; }
+  function sun() {
+    var c = jget('rh.wx'), dl = c && c.d && c.d.daily;
+    if (!dl || !dl.time || !dl.sunrise || !dl.sunset || Date.now() - c.t > 3 * 864e5) return null;
+    var today = localISO(), i = dl.time.indexOf(today);
+    if (i < 0) i = dl.time.length - 1;
+    var r = hm(dl.sunrise[i]), s = hm(dl.sunset[i]);
+    if (r == null || s == null || s <= r) return null;
+    return { rise: r, set: s, day: dl.time[i] };
+  }
   window.RH_Weather = {
+    sun: sun,
     start: function (el) { if (!el || W.enabled === false) return; update(el); },
     render: function (el) { return render(el); }
   };

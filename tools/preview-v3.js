@@ -1,7 +1,7 @@
 // v3 previews: Discover platform carousel. usage: node tools/preview-v3.js [root (pass dist for live data)] [out prefix]
 // Writes <prefix>netflix.png, <prefix>hbo.png and <prefix>transition.png (mid-slide frame).
 const path = require('path');
-let pw; try { pw = require('playwright-core'); } catch (e) { pw = require('/workspace/pwtool/node_modules/playwright-core'); }
+let pw; try { pw = require('playwright-core'); } catch (e) { pw = require(process.env.PLAYWRIGHT_CORE || 'playwright-core'); }
 const root = path.resolve(process.argv[2] || path.join(__dirname, '..'));
 const pre = process.argv[3] || path.join(__dirname, '..', 'preview-v3-');
 (async () => {

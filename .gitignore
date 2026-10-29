@@ -1,7 +1,32 @@
+# Build output and packages (contain your API keys)
 dist/
-.secrets/
 *.wgt
 *.tgz
+*.zip
+*.bak
+*~
+
+# Secrets, tokens, certificates, env files
+.secrets/
+relay/.secrets/
+certs/
+relay/certs/
+.env
+.env.*
+*.env
+.env.sh
+relay/.env.sh
+*.key
+*.pem
+*.p12
+
+# Logs, metrics and eval reports (may contain your prompts)
+logs/
+relay/logs/
+relay/evals/reports/
+*.log
+
 node_modules/
 .DS_Store
 preview*.png
+mockups/**/*.png

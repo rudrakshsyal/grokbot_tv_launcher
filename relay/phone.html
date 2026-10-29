@@ -1,0 +1,507 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,viewport-fit=cover,user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes"><meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"><meta name="apple-mobile-web-app-title" content="Remote">
+<meta name="theme-color" content="#07080d"><meta name="format-detection" content="telephone=no">
+<link rel="manifest" href="/manifest.json"><link rel="apple-touch-icon" href="/apple-touch-icon.png"><link rel="icon" href="/icon-192.png">
+<title>Glass Home Remote</title>
+<style>
+:root{--fg:#eef0f7;--dim:#8d93ab;--faint:#5d637c;--glass:rgba(255,255,255,.065);--glass2:rgba(255,255,255,.11);--line:rgba(255,255,255,.09);--acc:#7c8cff;--ok:#5fe0a1;--warn:#ffc561;--bad:#ff8080}
+[hidden]{display:none!important}
+*{box-sizing:border-box;touch-action:manipulation;-webkit-tap-highlight-color:transparent;-webkit-touch-callout:none}
+html,body{margin:0;height:100%;overflow:hidden;background:#07080d;color:var(--fg);font:16px/1.4 -apple-system,BlinkMacSystemFont,"SF Pro Text","Helvetica Neue",sans-serif;-webkit-font-smoothing:antialiased}
+body{position:fixed;inset:0;display:flex;flex-direction:column;padding:calc(env(safe-area-inset-top) + 10px) 18px calc(env(safe-area-inset-bottom) + 12px);-webkit-user-select:none;user-select:none}
+body:before{content:'';position:fixed;inset:-20%;z-index:-1;background:radial-gradient(40% 30% at 20% 18%,rgba(92,104,255,.28),transparent 70%),radial-gradient(35% 28% at 85% 60%,rgba(170,80,255,.16),transparent 70%),radial-gradient(45% 30% at 40% 100%,rgba(40,150,255,.14),transparent 70%)}
+button{font:inherit;color:inherit;border:0;background:none;padding:0;cursor:pointer;touch-action:manipulation}
+.glass{background:var(--glass);border:1px solid var(--line);-webkit-backdrop-filter:blur(26px) saturate(170%);backdrop-filter:blur(26px) saturate(170%);box-shadow:inset 0 1px 0 rgba(255,255,255,.07),0 10px 30px rgba(0,0,0,.25)}
+.press{transition:transform .14s cubic-bezier(.3,.7,.4,1),background .14s}
+.press.down,.press:active{transform:scale(.93);background:var(--glass2)}
+/* top bar */
+.top{display:flex;align-items:center;justify-content:space-between;gap:10px;height:40px}
+.pill{display:flex;align-items:center;gap:8px;height:32px;padding:0 13px;border-radius:99px;font-size:13px;font-weight:500;color:#cfd3e4;white-space:nowrap;overflow:hidden;max-width:72%}
+.pill i{width:7px;height:7px;border-radius:50%;background:var(--faint);flex:none;box-shadow:0 0 0 3px rgba(255,255,255,.04)}
+.pill.ok i{background:var(--ok);box-shadow:0 0 10px rgba(95,224,161,.6)}.pill.warn i{background:var(--warn)}.pill.bad i{background:var(--bad)}
+.pwr{width:40px;height:40px;border-radius:50%;display:grid;place-items:center}
+.pwr svg{width:19px;height:19px;stroke:#ff8f8f}
+.seg{position:relative;display:flex;margin:12px 0 4px;border-radius:14px;padding:3px;height:40px}
+.seg button{flex:1;position:relative;z-index:1;font-size:14px;font-weight:600;color:var(--dim);border-radius:11px;transition:color .2s}
+.seg button.on{color:#fff}
+.seg b{position:absolute;top:3px;bottom:3px;left:3px;width:calc((100% - 6px)/3);border-radius:11px;background:rgba(255,255,255,.13);box-shadow:0 2px 10px rgba(0,0,0,.25),inset 0 1px 0 rgba(255,255,255,.1);transition:transform .32s cubic-bezier(.3,.8,.3,1)}
+.views{flex:1;position:relative;min-height:0}
+.view{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;opacity:0;pointer-events:none;transform:translateY(6px);transition:opacity .22s,transform .22s}
+.view.on{opacity:1;pointer-events:auto;transform:none}
+/* remote */
+#vRemote{justify-content:space-evenly;padding-top:6px}
+.mode{display:flex;gap:4px;font-size:12px;font-weight:600;letter-spacing:.02em}
+.mode button{padding:5px 11px;border-radius:99px;color:var(--faint)}.mode button.on{color:var(--fg);background:var(--glass)}
+.dpad{position:relative;width:min(272px,70vw);height:min(272px,70vw);border-radius:50%;flex:none;touch-action:none}
+.dpad .arr{position:absolute;display:grid;place-items:center;width:34%;height:34%;border-radius:50%}
+.dpad .arr svg{width:22px;height:22px;stroke:#dfe3f2;stroke-width:2.2;fill:none;stroke-linecap:round;stroke-linejoin:round;opacity:.85}
+.dpad .u{top:0;left:33%}.dpad .d{bottom:0;left:33%}.dpad .l{left:0;top:33%}.dpad .r{right:0;top:33%}
+.dpad .arr.down{transform:scale(.9);background:rgba(255,255,255,.08)}
+.dpad .ok{position:absolute;left:31%;top:31%;width:38%;height:38%;border-radius:50%;font-size:15px;font-weight:600;letter-spacing:.06em;color:#fff;background:linear-gradient(160deg,rgba(255,255,255,.18),rgba(255,255,255,.05));border:1px solid rgba(255,255,255,.14);box-shadow:inset 0 1px 0 rgba(255,255,255,.18),0 8px 24px rgba(0,0,0,.35)}
+.pad{position:relative;width:min(300px,78vw);height:min(272px,70vw);border-radius:30px;display:grid;place-items:center;color:var(--faint);font-size:13px;touch-action:none;flex:none}
+.pad .dot{position:absolute;width:56px;height:56px;border-radius:50%;background:radial-gradient(circle,rgba(160,175,255,.45),transparent 70%);pointer-events:none;opacity:0;transition:opacity .2s}
+.row{display:flex;gap:18px;justify-content:center;align-items:center}
+.cb{width:62px;height:62px;border-radius:50%;display:grid;place-items:center}
+.cb svg,.vol svg{width:22px;height:22px;fill:none;stroke:#e6e9f5;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.vol{display:flex;align-items:center;height:56px;border-radius:99px;padding:0 4px}
+.vol button{width:64px;height:48px;border-radius:99px;display:grid;place-items:center}
+.vol span{width:1px;height:22px;background:var(--line)}
+.apps{width:100%;display:flex;gap:9px;overflow-x:auto;padding:4px 2px 6px;scrollbar-width:none;-webkit-overflow-scrolling:touch;mask-image:linear-gradient(90deg,#000 88%,transparent)}
+.apps::-webkit-scrollbar{display:none}
+.app{flex:none;display:flex;align-items:center;gap:8px;height:42px;padding:0 15px 0 12px;border-radius:99px;font-size:14px;font-weight:500;color:#dfe2ef}
+.app i{width:9px;height:9px;border-radius:50%;flex:none}
+.cap{font-size:11px;letter-spacing:.09em;text-transform:uppercase;color:var(--faint);font-weight:600;align-self:flex-start;margin:0 0 2px 4px}
+/* yo-yo */
+#vYoyo{justify-content:flex-start;padding-top:4px}
+.ystate{margin-top:10px;font-size:12px;letter-spacing:.09em;text-transform:uppercase;font-weight:600;color:var(--dim);height:16px}
+#heard{margin-top:10px;min-height:62px;max-height:96px;overflow:hidden;font-size:22px;font-weight:500;line-height:1.3;text-align:center;letter-spacing:-.01em;max-width:340px;color:#f3f4fa;-webkit-user-select:text;user-select:text}
+#heard.interim{color:var(--dim)}
+.micwrap{position:relative;flex:none;margin:8px 0 6px;width:200px;height:200px;display:grid;place-items:center}
+#mic{position:relative;width:156px;height:156px;border-radius:50%;touch-action:none;-webkit-user-select:none;user-select:none;
+ background:radial-gradient(circle at 34% 28%,#c3cdff,#7180ff 42%,#4434c6 100%);box-shadow:0 0 50px rgba(103,116,255,.45),inset 0 -10px 30px rgba(0,0,0,.3),inset 0 2px 0 rgba(255,255,255,.35);transition:transform .2s cubic-bezier(.3,.8,.3,1),filter .2s}
+#mic svg{width:42px;height:42px;fill:#fff;opacity:.95;pointer-events:none}
+.micwrap:before{content:'';position:absolute;inset:0;border-radius:50%;border:1px solid rgba(160,172,255,.25);transform:scale(.8);opacity:0;transition:.3s}
+.listening #mic{transform:scale(1.1);background:radial-gradient(circle at 34% 28%,#ffd0e2,#ff6f9a 42%,#b8265e 100%);box-shadow:0 0 70px rgba(255,100,150,.55),inset 0 -10px 30px rgba(0,0,0,.3),inset 0 2px 0 rgba(255,255,255,.35)}
+.listening .micwrap:before{opacity:1;animation:ring 1.6s ease-out infinite}
+.cancelling #mic{transform:scale(.96);filter:grayscale(.85) brightness(.75)}
+.sending #mic{animation:breathe 1.2s ease-in-out infinite}
+@keyframes ring{0%{transform:scale(.8);opacity:.9}100%{transform:scale(1.25);opacity:0}}
+@keyframes breathe{50%{transform:scale(.95);filter:brightness(1.15)}}
+#micl{font-size:15px;font-weight:600;color:#dfe3f2;height:22px}
+.ans{width:100%;margin-top:14px;border-radius:20px;padding:14px 16px;min-height:64px;max-height:30vh;overflow:auto;font-size:16px;color:#e3e6f2;display:none;-webkit-user-select:text;user-select:text}
+.ans.on{display:block}
+.ans small{display:block;margin-top:8px;color:var(--faint);font-size:12px}
+.ybot{margin-top:auto;width:100%}
+form{display:flex;gap:8px;width:100%}
+input[type=text]{flex:1;min-width:0;height:46px;padding:0 16px;border-radius:23px;font:16px -apple-system,sans-serif;color:#fff;outline:none;-webkit-user-select:text;user-select:text}
+input::placeholder{color:var(--faint)}
+.go{width:46px;height:46px;border-radius:50%;display:grid;place-items:center;background:var(--acc)!important}
+.go svg{width:20px;height:20px;fill:none;stroke:#fff;stroke-width:2.4;stroke-linecap:round;stroke-linejoin:round}
+.yopts{display:flex;justify-content:space-between;align-items:center;gap:8px;margin:0 0 10px}
+.lang{display:flex;padding:3px;border-radius:16px;gap:2px}
+.lang button{height:28px;padding:0 11px;border-radius:13px;font:600 13px -apple-system,sans-serif;color:var(--dim);transition:background .2s,color .2s}
+.lang button.on{background:rgba(255,255,255,.16);color:#fff}
+.newc{height:34px;padding:0 13px;border-radius:17px;display:flex;align-items:center;gap:6px;font:600 13px -apple-system,sans-serif;color:#dfe3f2}
+.newc svg{width:15px;height:15px;fill:none;stroke:currentColor;stroke-width:2.2;stroke-linecap:round}
+.ans .rp{float:right;margin:-4px -6px 4px 8px;width:32px;height:32px;border-radius:50%;display:grid;place-items:center;background:rgba(255,255,255,.1)}
+.ans .rp svg{width:17px;height:17px;fill:none;stroke:#dfe3f2;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.ans .rp.on{background:var(--acc)}
+.yfoot{display:flex;justify-content:space-between;align-items:center;margin-top:10px;font-size:12px;color:var(--faint)}
+.sw{display:flex;align-items:center;gap:7px}.sw input{accent-color:var(--acc);width:17px;height:17px;margin:0}
+/* home */
+#vHome{justify-content:center}
+.soon{width:100%;max-width:340px;border-radius:26px;padding:30px 24px;text-align:center}
+.soon svg{width:40px;height:40px;stroke:var(--acc);fill:none;stroke-width:1.6;stroke-linejoin:round;stroke-linecap:round}
+.soon h2{margin:14px 0 6px;font-size:19px;font-weight:600;letter-spacing:-.01em}
+.soon p{margin:0;color:var(--dim);font-size:14px}
+/* pairing banner */
+.pairb{flex:none;margin:0 16px 10px;border-radius:22px;padding:15px 16px 14px;display:flex;gap:13px;align-items:flex-start;border-color:rgba(255,196,87,.35)!important;background:linear-gradient(135deg,rgba(255,190,80,.16),rgba(255,255,255,.05))!important}
+.pairb.bad{border-color:rgba(255,107,107,.38)!important;background:linear-gradient(135deg,rgba(255,96,96,.16),rgba(255,255,255,.05))!important}
+.pairb .pi{flex:none;width:38px;height:38px;border-radius:12px;display:grid;place-items:center;background:rgba(255,196,87,.18)}
+.pairb.bad .pi{background:rgba(255,107,107,.18)}
+.pairb .pi svg{width:22px;height:22px;fill:none;stroke:#ffd38a;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
+.pairb.bad .pi svg{stroke:#ff9f9f}
+.pairb.spin .pi svg{animation:pulse 1.4s ease-in-out infinite}
+@keyframes pulse{50%{opacity:.35;transform:scale(.9)}}
+.pairb h3{margin:1px 0 4px;font-size:16px;font-weight:650;letter-spacing:-.01em;color:#fff}
+.pairb p{margin:0;font-size:13px;line-height:1.38;color:#d6d9e6}
+.pairb b{color:#fff;font-weight:600}
+.pairb .pa{display:flex;gap:8px;align-items:center;margin-top:11px}
+.pairb button{flex:none;white-space:nowrap;height:34px;padding:0 15px;border-radius:17px;font:600 14px -apple-system,sans-serif;color:#fff;background:rgba(255,255,255,.14);border:1px solid rgba(255,255,255,.18)}
+.pairb button.pri{background:var(--acc);border-color:transparent}
+.pairb .pt{font-size:12px;color:var(--faint);min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+/* toast */
+#toast{position:fixed;left:50%;bottom:calc(env(safe-area-inset-bottom) + 24px);transform:translate(-50%,20px);opacity:0;max-width:86%;padding:11px 16px;border-radius:16px;font-size:14px;text-align:center;color:#eef0f7;pointer-events:none;transition:.25s;z-index:9}
+#toast.on{opacity:1;transform:translate(-50%,0)}
+</style></head><body>
+<div class="top"><div class="pill glass" id="pill"><i></i><span id="pillt">Connecting…</span></div>
+  <button class="pwr glass press" id="pwr" aria-label="Power"><svg viewBox="0 0 24 24" fill="none" stroke-width="2.2" stroke-linecap="round"><path d="M12 3v8"/><path d="M6.4 6.6a8 8 0 1 0 11.2 0"/></svg></button></div>
+<nav class="seg glass" id="seg"><b id="segb"></b><button data-v="remote">Remote</button><button data-v="yoyo">Yo-Yo</button><button data-v="home">Home</button></nav>
+<div class="pairb glass" id="pairb" hidden role="status" aria-live="polite"><div class="pi"><svg viewBox="0 0 24 24"><rect x="3" y="4.5" width="18" height="12" rx="2"/><path d="M8 20h8M12 16.5V20"/></svg></div>
+ <div style="flex:1;min-width:0"><h3 id="pairh"></h3><p id="pairp"></p><div class="pa"><button class="press pri" id="pairgo">Retry pair</button><span class="pt" id="pairt"></span></div></div></div>
+<main class="views">
+ <section class="view" id="vRemote">
+  <div class="mode" id="mode"><button data-m="dpad">Buttons</button><button data-m="pad">Touchpad</button></div>
+  <div class="dpad glass" id="dpad">
+   <button class="arr u" data-k="KEY_UP" aria-label="Up"><svg viewBox="0 0 24 24"><path d="M6 15l6-6 6 6"/></svg></button>
+   <button class="arr d" data-k="KEY_DOWN" aria-label="Down"><svg viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg></button>
+   <button class="arr l" data-k="KEY_LEFT" aria-label="Left"><svg viewBox="0 0 24 24"><path d="M15 6l-6 6 6 6"/></svg></button>
+   <button class="arr r" data-k="KEY_RIGHT" aria-label="Right"><svg viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg></button>
+   <button class="ok press" data-k="KEY_ENTER">OK</button>
+  </div>
+  <div class="pad glass" id="pad" hidden><span>Swipe to move · tap to select</span><div class="dot" id="pdot"></div></div>
+  <div class="row">
+   <button class="cb glass press" data-k="KEY_RETURN" aria-label="Back"><svg viewBox="0 0 24 24"><path d="M9 14L4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/></svg></button>
+   <button class="cb glass press" data-k="KEY_HOME" aria-label="TV Home"><svg viewBox="0 0 24 24"><path d="M4 11l8-7 8 7"/><path d="M6 9.5V20h12V9.5"/></svg></button>
+   <button class="cb glass press" data-k="PLAYPAUSE" aria-label="Play or pause"><svg viewBox="0 0 24 24"><path d="M5 5l8 7-8 7z"/><path d="M16 5v14M20 5v14"/></svg></button>
+  </div>
+  <div class="vol glass">
+   <button class="press" data-k="KEY_VOLDOWN" data-rep="1" aria-label="Volume down"><svg viewBox="0 0 24 24"><path d="M6 12h12"/></svg></button><span></span>
+   <button class="press" data-k="KEY_MUTE" aria-label="Mute"><svg viewBox="0 0 24 24"><path d="M4 9.5h3.5L12 5v14l-4.5-4.5H4z"/><path d="M16 9.5l5 5M21 9.5l-5 5"/></svg></button><span></span>
+   <button class="press" data-k="KEY_VOLUP" data-rep="1" aria-label="Volume up"><svg viewBox="0 0 24 24"><path d="M6 12h12M12 6v12"/></svg></button>
+  </div>
+  <div style="width:100%"><div class="cap">Open</div><div class="apps" id="apps"></div></div>
+ </section>
+ <section class="view" id="vYoyo">
+  <div class="ystate" id="ystate">Yo-Yo</div>
+  <div id="heard" class="interim">Hold the button and ask for a show, a movie, ratings or the weather.</div>
+  <div class="micwrap"><button id="mic" aria-label="Hold to talk"><svg viewBox="0 0 24 24"><path d="M12 15a3.5 3.5 0 0 0 3.5-3.5v-6a3.5 3.5 0 1 0-7 0v6A3.5 3.5 0 0 0 12 15zm6-3.5a6 6 0 0 1-12 0H4.5a7.5 7.5 0 0 0 6.75 7.46V21h1.5v-2.04a7.5 7.5 0 0 0 6.75-7.46z"/></svg></button></div>
+  <div id="micl">Hold to talk</div>
+  <div class="ans glass" id="ans"></div>
+  <div class="ybot">
+   <div class="yopts"><div class="lang glass" id="lang" role="radiogroup" aria-label="Language"><button data-l="en-US" role="radio">English</button><button data-l="hi-IN" role="radio" lang="hi">हिन्दी</button><button data-l="en-IN" role="radio">Hinglish</button></div>
+    <button class="newc glass press" id="newc" aria-label="New chat"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>New chat</button></div>
+   <form id="f"><input id="q" class="glass" type="text" placeholder="Or type to Yo-Yo…" autocomplete="off" enterkeyhint="send"><button class="go press" aria-label="Send"><svg viewBox="0 0 24 24"><path d="M12 19V5M6 11l6-6 6 6"/></svg></button></form>
+   <div class="yfoot"><label class="sw"><input type="checkbox" id="speak"> Speak answers</label><span id="brain"></span></div>
+  </div>
+ </section>
+ <section class="view" id="vHome">
+  <div class="soon glass"><svg viewBox="0 0 24 24"><path d="M3.5 11L12 4l8.5 7"/><path d="M5.5 9.5V20h13V9.5"/><path d="M10 20v-5h4v5"/></svg>
+   <h2>Smart home</h2><p>Lights, plugs and other devices are coming later.</p></div>
+ </section>
+</main>
+<div id="toast" class="glass"></div>
+<script>
+(() => {
+'use strict';
+const $ = id => document.getElementById(id);
+const client = localStorage.getItem('rv.client') || ('p' + Math.random().toString(36).slice(2, 10)); localStorage.setItem('rv.client', client);
+const post = (p, o) => fetch(p, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(o || {}) }).then(r => r.json().catch(() => ({ ok: false, error: 'http ' + r.status })));
+let toastT; function toast(t, ms) { const el = $('toast'); el.textContent = t; el.classList.add('on'); clearTimeout(toastT); toastT = setTimeout(() => el.classList.remove('on'), ms || 2600); }
+document.addEventListener('contextmenu', e => { if (!e.target.closest('input,#heard,.ans')) e.preventDefault(); });
+document.addEventListener('gesturestart', e => e.preventDefault());          // no pinch zoom
+
+// ---------- tabs ----------
+const VIEWS = { remote: 'vRemote', yoyo: 'vYoyo', home: 'vHome' }, ORDER = ['remote', 'yoyo', 'home'];
+function tab(v) {
+  if (!VIEWS[v]) v = 'remote';
+  ORDER.forEach(k => { $(VIEWS[k]).classList.toggle('on', k === v); document.querySelector('[data-v="' + k + '"]').classList.toggle('on', k === v); });
+  $('segb').style.transform = 'translateX(' + (ORDER.indexOf(v) * 100) + '%)';
+  localStorage.setItem('rv.tab', v); document.body.dataset.tab = v;
+}
+$('seg').addEventListener('click', e => { const b = e.target.closest('button'); if (b) tab(b.dataset.v); });
+tab(new URLSearchParams(location.search).get('tab') || localStorage.getItem('rv.tab') || 'remote');
+
+// ---------- status pill + pairing banner ----------
+let tvst = null, relayOk = true;
+const DCM = 'Settings › General › External Device Manager › Device Connection Manager';
+function tvOff() { return tvst && tvst.power === 'off' && tvst.state !== 'connected'; }
+function paintPill() {
+  const p = $('pill'); let cls = '', t;
+  const st = tvst && tvst.state;
+  if (!relayOk) { cls = 'bad'; t = 'Relay offline'; }
+  else if (!tvst) t = 'Connecting…';
+  else if (st === 'connected') { cls = 'ok'; t = 'TV connected'; }
+  else if (tvOff()) t = 'TV off';
+  else if (st === 'pairing') { cls = 'warn'; t = 'Choose Allow on the TV'; }
+  else if (st === 'pair-timeout' || st === 'unpaired') { cls = 'warn'; t = 'Remote not paired'; }
+  else if (st === 'denied') { cls = 'bad'; t = 'TV blocked this remote'; }
+  else if (st === 'connecting') t = 'Connecting to TV…';
+  else if (st === 'offline') t = 'TV off or unreachable';
+  else t = tvst.paired ? 'TV ready' : 'Remote not paired';
+  p.className = 'pill glass ' + cls; $('pillt').textContent = t;
+  paintPair();
+}
+function paintPair() {
+  const el = $('pairb'), st = relayOk && tvst ? tvst.state : null;
+  let h = '', d = '', btn = 'Retry pair', kind = '';
+  if (st === 'pairing') {
+    kind = 'spin'; h = 'Look at your TV and choose Allow';
+    d = 'A prompt for <b>“Glass Home Remote”</b> should be on the TV now. Use the TV’s own remote to pick <b>Allow</b> — it’s a one-time step.';
+  } else if (st === 'pair-timeout') {
+    h = 'The TV didn’t answer the Allow prompt';
+    d = 'If no prompt showed up: keep the Mac and TV on the same Wi-Fi (no guest network or AP isolation), and on the TV set <b>' + DCM + ' › Access Notification</b> to <b>First Time Only</b>. Then retry.';
+  } else if (st === 'denied') {
+    kind = 'bad'; h = 'TV blocked Glass Home Remote';
+    d = 'On the TV go to <b>' + DCM + ' › Device List</b>, remove or allow “Glass Home Remote”, then tap Retry pair.';
+  } else if (st === 'unpaired' && !tvOff()) {
+    h = 'Pair this remote'; btn = 'Pair';
+    d = 'One-time setup: tap <b>Pair</b>, then choose <b>Allow</b> on the TV.';
+  }
+  if (!h) { el.hidden = true; return; }
+  el.hidden = false; el.className = 'pairb glass ' + kind; el.dataset.state = st;
+  $('pairh').textContent = h; $('pairp').innerHTML = d; $('pairgo').textContent = btn;
+  $('pairt').textContent = st === 'pairing' && tvst.pairingSince ? Math.max(0, Math.round((Date.now() - tvst.pairingSince) / 1000)) + ' s' : (tvst.lastError && st === 'pair-timeout' ? tvst.lastError : '');
+}
+let pollT;
+function poll() {
+  clearTimeout(pollT);
+  fetch('/remote/status').then(r => r.json()).then(s => { tvst = s; relayOk = true; paintPill(); }, () => { relayOk = false; paintPill(); })
+    .finally(() => { pollT = setTimeout(poll, tvst && tvst.state === 'pairing' ? 1000 : 5000); });
+}
+poll();
+document.addEventListener('visibilitychange', () => { if (!document.hidden) poll(); });
+$('pairgo').addEventListener('click', () => {
+  post('/remote/pair', {}).then(r => { if (r && r.status) { tvst = Object.assign({}, tvst, r.status); paintPill(); } setTimeout(poll, 300); }, () => { relayOk = false; paintPill(); });
+});
+
+// ---------- remote ----------
+let pending = 0;
+const QUIET = { pairing: 1, unpaired: 1, 'pair-timeout': 1, denied: 1 };   // shown by the banner, not a toast
+const ERR = {
+  offline: 'The TV is off or not reachable on Wi-Fi.',
+  'no-mac': 'Turning the TV on needs TV_MAC on the relay (see README). Use the TV remote for now.',
+  'launcher-offline': 'Glass Home isn’t open on the TV.'
+};
+let lastErr = '', lastErrAt = 0;
+function remoteResult(r) {
+  if (r && r.status) { tvst = Object.assign({}, tvst, r.status); paintPill(); }
+  if (!r || r.ok !== false || r.error === 'slow down' || r.error === 'http 429') return;
+  if (QUIET[r.error]) { if (r.error === 'pairing') poll(); return; }
+  if (r.error === lastErr && Date.now() - lastErrAt < 8000) return;          // one toast per error, not per press
+  lastErr = r.error; lastErrAt = Date.now();
+  toast(ERR[r.error] || ('TV: ' + (r.message || r.error)), 4200);
+}
+function key(k) {
+  if (pending > 2) return;                       // don't pile up presses while the TV is slow/unreachable
+  pending++;
+  post('/remote/key', { key: k }).then(remoteResult, () => { relayOk = false; paintPill(); toast('Can’t reach the relay on the Mac.'); }).finally(() => pending--);
+}
+function holdable(el, onDown, opt) {         // press state + optional auto-repeat while held
+  let rep = null, del = null;
+  const stop = () => { el.classList.remove('down'); clearTimeout(del); clearInterval(rep); del = rep = null; };
+  el.addEventListener('pointerdown', e => { e.preventDefault(); el.setPointerCapture && el.setPointerCapture(e.pointerId); el.classList.add('down'); onDown();
+    if (opt && opt.repeat) del = setTimeout(() => { rep = setInterval(onDown, 170); }, 420); });
+  ['pointerup', 'pointercancel', 'lostpointercapture'].forEach(t => el.addEventListener(t, stop));
+}
+document.querySelectorAll('#vRemote [data-k]').forEach(b => holdable(b, () => key(b.dataset.k), { repeat: b.classList.contains('arr') || b.dataset.rep }));
+holdable($('pwr'), () => post('/remote/power', {}).then(r => { remoteResult(r); if (r.ok) toast(r.via === 'wol' ? 'Waking the TV…' : 'Power'); }, () => toast('Can’t reach the relay on the Mac.')));
+// mode: buttons / touchpad
+function mode(m) { const pad = m === 'pad'; $('dpad').hidden = pad; $('pad').hidden = !pad; document.querySelectorAll('#mode button').forEach(b => b.classList.toggle('on', b.dataset.m === m)); localStorage.setItem('rv.mode', m); }
+$('mode').addEventListener('click', e => { const b = e.target.closest('button'); if (b) mode(b.dataset.m); });
+mode(localStorage.getItem('rv.mode') || 'dpad');
+(() => {   // touchpad: each ~40px of travel = one arrow press; a tap = OK
+  const pad = $('pad'), dot = $('pdot'); let sx, sy, moved, id = null;
+  const STEP = 40;
+  pad.addEventListener('pointerdown', e => { e.preventDefault(); id = e.pointerId; pad.setPointerCapture(id); sx = e.clientX; sy = e.clientY; moved = false;
+    const r = pad.getBoundingClientRect(); dot.style.left = (e.clientX - r.left - 28) + 'px'; dot.style.top = (e.clientY - r.top - 28) + 'px'; dot.style.opacity = 1; });
+  pad.addEventListener('pointermove', e => { if (e.pointerId !== id) return; const dx = e.clientX - sx, dy = e.clientY - sy;
+    const r = pad.getBoundingClientRect(); dot.style.left = (e.clientX - r.left - 28) + 'px'; dot.style.top = (e.clientY - r.top - 28) + 'px';
+    if (Math.max(Math.abs(dx), Math.abs(dy)) < STEP) return;
+    moved = true; key(Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? 'KEY_RIGHT' : 'KEY_LEFT') : (dy > 0 ? 'KEY_DOWN' : 'KEY_UP')); sx = e.clientX; sy = e.clientY; });
+  const end = e => { if (e.pointerId !== id) return; id = null; dot.style.opacity = 0; if (!moved && e.type === 'pointerup') key('KEY_ENTER'); };
+  pad.addEventListener('pointerup', end); pad.addEventListener('pointercancel', end);
+})();
+// quick launch: Glass Home + the launcher dock apps (from the TV app's config, via the relay)
+function chip(name, color, fn) { const b = document.createElement('button'); b.className = 'app glass press'; b.innerHTML = '<i></i>'; b.firstChild.style.background = color; b.appendChild(document.createTextNode(name)); b.addEventListener('click', fn); $('apps').appendChild(b); }
+function launch(k, name) { toast('Opening ' + name + '…', 1500); post('/remote/launch', { app: k }).then(remoteResult, () => toast('Can’t reach the relay on the Mac.')); }
+fetch('/remote/apps').then(r => r.json()).then(d => {
+  chip('Glass Home', 'linear-gradient(135deg,#b9c4ff,#6a5cff)', () => launch('launcher', 'Glass Home'));
+  chip('Yo-Yo on TV', 'radial-gradient(circle at 35% 30%,#c3cdff,#5b6cff)', () => post('/remote/launcher', { action: 'yoyo' }).then(remoteResult));
+  (d.apps || []).forEach(a => chip(a.name, a.color, () => launch(a.key, a.name)));
+}, () => {});
+
+// ---------- Yo-Yo ----------
+// language: recognition.lang, the reply language (sent to the relay) and the voice that reads answers
+const LANGS = { 'en-US': 'English', 'hi-IN': 'Hindi', 'en-IN': 'Hinglish' };
+let lang = LANGS[localStorage.getItem('rv.lang')] ? localStorage.getItem('rv.lang') : 'en-US';
+function setLang(l) { lang = l; localStorage.setItem('rv.lang', l); document.querySelectorAll('#lang button').forEach(b => { const on = b.dataset.l === l; b.classList.toggle('on', on); b.setAttribute('aria-checked', String(on)); }); }
+document.querySelectorAll('#lang button').forEach(b => b.addEventListener('click', () => { if (b.dataset.l !== lang) { setLang(b.dataset.l); toast({ 'en-US': 'Listening in English', 'hi-IN': 'हिन्दी में सुन रही हूँ', 'en-IN': 'Hinglish: English + Hindi, Indian accent' }[lang], 1600); } }));
+setLang(lang);
+$('newc').addEventListener('click', () => {
+  askN++; stopTalk(); if (H) finish(H, 'cancel', true);
+  post('/chat/reset', { client }).then(() => toast('New chat started', 1400), () => toast('Can’t reach the relay on the Mac.'));
+  $('ans').className = 'ans glass'; $('ans').textContent = ''; ui('idle', null, 'New chat. Hold the button and ask anything.', true);
+});
+
+// spoken answers: the iPhone's own voices (free). iOS only lets a page speak after a tap has "unlocked" speech,
+// so the first touch / send tap speaks a silent empty utterance synchronously inside the gesture.
+const TTS = window.speechSynthesis && window.SpeechSynthesisUtterance ? window.speechSynthesis : null;
+$('speak').checked = localStorage.getItem('rv.speak') !== '0';               // default ON
+$('speak').onchange = function () { localStorage.setItem('rv.speak', this.checked ? '1' : '0'); if (this.checked) unlockTTS(true); else stopTalk(); };
+let voices = [], ttsReady = false, utt = null;
+const loadVoices = () => { try { voices = TTS.getVoices() || []; } catch (e) { voices = []; } };
+if (TTS) { loadVoices(); if (TTS.addEventListener) TTS.addEventListener('voiceschanged', loadVoices); else TTS.onvoiceschanged = loadVoices; }
+const PREF = { 'en-US': ['Samantha', 'Ava', 'Allison', 'Zoe', 'Susan', 'Evan', 'Nathan', 'Tom'], 'hi-IN': ['Lekha', 'Kiyara', 'Neel'], 'en-IN': ['Rishi', 'Veena', 'Isha', 'Sangeeta'] };
+const NOVELTY = /eloquence|novelty|bad news|good news|bahh|bells|boing|bubbles|cellos|jester|organ|superstar|trinoids|whisper|wobble|zarvox|albert|fred|junior|ralph|kathy|eddy|flo|grandma|grandpa|reed|rocko|sandy|shelley/i;
+function voiceFor(l) {
+  if (!voices.length && TTS) loadVoices();
+  let best = null, bs = 0;
+  voices.forEach(v => {
+    const vl = String(v.lang || '').replace('_', '-');
+    let sc = vl === l ? 20 : vl.slice(0, 2) === l.slice(0, 2) ? 8 : 0; if (!sc) return;
+    if (/enhanced|premium/i.test(v.name)) sc += 6;
+    const p = (PREF[l] || []).findIndex(nm => v.name.indexOf(nm) === 0); if (p >= 0) sc += 5 - p * .3;
+    if (NOVELTY.test(v.name)) sc -= 12; if (v.localService) sc += .5;
+    if (sc > bs) { bs = sc; best = v; }
+  });
+  return best;
+}
+function unlockTTS(force) {
+  if (!TTS || !$('speak').checked || (ttsReady && !force)) return;
+  try { TTS.cancel(); const u = new SpeechSynthesisUtterance(''); u.volume = 0; TTS.speak(u); ttsReady = true; } catch (e) {}
+}
+function stopTalk() { if (!TTS) return false; const busy = TTS.speaking || TTS.pending; if (busy) TTS.cancel(); setRp(false); return busy; }
+const setRp = on => { const b = document.querySelector('#ans .rp'); if (b) b.classList.toggle('on', !!on); };
+// what to say: the relay's short "spoken" version, else the answer without markdown/emoji, first 2 sentences
+function spokenOf(r) {
+  if (r.spoken) return r.spoken;
+  const t = String(r.text || '').replace(/https?:\/\/\S+/g, '').replace(/[*_#`>~|]/g, '').replace(/\((?:19|20)\d\d\)/g, '')
+    .replace(/[\u{1F000}-\u{1FAFF}\u{2600}-\u{27BF}\u{FE0F}\u{200D}\u{2B50}]/gu, '').replace(/\s+([,.!?\u0964])/g, '$1').replace(/\s{2,}/g, ' ').trim();
+  return t.split(/(?<=[.!?\u0964])\s+/).slice(0, 2).join(' ');
+}
+function talk(text) {
+  if (!TTS || !$('speak').checked || !text) return;
+  TTS.cancel();
+  const u = utt = new SpeechSynthesisUtterance(text);                       // keep a reference: iOS drops events of GC'd utterances
+  u.lang = lang; const v = voiceFor(lang); if (v) u.voice = v; u.rate = 1; u.pitch = 1;
+  u.onstart = () => { if (utt === u) setRp(true); }; u.onend = u.onerror = () => { if (utt === u) setRp(false); };
+  TTS.speak(u);
+}
+document.addEventListener('visibilitychange', () => { if (document.hidden) { stopTalk(); ttsReady = false; if (H && H.held) holdEnd(true); } });
+
+fetch('/status').then(r => r.json()).then(s => { $('brain').textContent = s.mock ? 'mock replay' : s.brain; }, () => {});
+const sec = ms => ms == null ? '\u2013' : ms < 1000 ? ms + ' ms' : (ms / 1000).toFixed(1) + ' s';
+const kf = n => n == null ? 'n/a' : n >= 1000 ? (n / 1000).toFixed(1) + 'k' : String(n);
+function ui(state, label, heard, interim) {   // state: idle | listening | cancelling | sending | answer
+  document.body.classList.remove('listening', 'cancelling', 'sending'); if (state !== 'idle' && state !== 'answer') document.body.classList.add(state);
+  $('ystate').textContent = { idle: 'Yo-Yo', listening: 'Listening', cancelling: 'Release to cancel', sending: 'Sending', answer: 'Answer' }[state];
+  $('micl').textContent = label || { idle: 'Hold to talk', answer: 'Hold to talk', listening: 'Listening…', cancelling: 'Slide back to keep talking', sending: 'Sending…' }[state];
+  if (heard != null) { $('heard').textContent = heard; $('heard').className = interim ? 'interim' : ''; }
+}
+const MISSED = 'Didn’t catch that, hold and try again.';
+let askN = 0;
+function ask(text, sttMs, typed) {
+  text = (text || '').trim();
+  if (!text) { ui('idle', null, MISSED, true); return; }                    // never send an empty question
+  const n = ++askN;
+  ui('sending', null, '\u201c' + text + '\u201d');
+  $('ans').className = 'ans glass on'; $('ans').innerHTML = '<small>Yo-Yo is working… (watch the TV)</small>';
+  post('/ask', { text, sttMs: sttMs || 0, typed: !!typed, client, lang }).then(r => {
+    if (n !== askN || r.superseded) return;
+    const t = r.text || r.message || 'No answer', a = $('ans'); a.textContent = '';
+    const say = spokenOf(r);
+    if (TTS && say && r.text) {
+      const b = document.createElement('button'); b.className = 'rp press'; b.setAttribute('aria-label', 'Read the answer aloud');
+      b.innerHTML = '<svg viewBox="0 0 24 24"><path d="M4 9.5h3.5L12 5v14l-4.5-4.5H4z"/><path d="M15.5 8.5a5 5 0 0 1 0 7M18.5 5.5a9 9 0 0 1 0 13"/></svg>';
+      b.addEventListener('click', () => { if (TTS.speaking) { stopTalk(); return; } if (!$('speak').checked) { $('speak').checked = true; localStorage.setItem('rv.speak', '1'); } unlockTTS(true); talk(say); });
+      a.appendChild(b);
+    }
+    a.appendChild(document.createTextNode(t));
+    if (r.brain || r.stats) { const s = document.createElement('small'); const st = r.stats || {};
+      s.textContent = [r.brain || st.brain, st.totalMs != null ? sec(st.totalMs) : null, st.tokens && st.tokens.total != null ? kf(st.tokens.total) + ' tokens' : null, st.fallback ? 'fallback: ' + st.fallback : null].filter(Boolean).join(' \u00b7 ');
+      a.appendChild(s); }
+    ui('answer'); if (r.text) talk(say);
+  }, () => { if (n !== askN) return; $('ans').textContent = 'Couldn’t reach the relay on the Mac.'; ui('idle'); });
+}
+$('f').onsubmit = e => { e.preventDefault(); unlockTTS(true); const v = $('q').value; $('q').value = ''; $('q').blur(); if (v.trim()) ask(v, 0, true); };
+
+// Hold-to-talk. Every press gets its own id and a fresh SpeechRecognition (Safari refuses reuse). Callbacks are only
+// honoured for the CURRENT press's current instance (late 'aborted' errors / results / ends of old instances are
+// ignored), and a new instance never starts while the previous one is still shutting down: it waits for that
+// instance's onend (max 0.7 s), because iOS otherwise starts a "dead" session that ends with no results.
+// start() runs synchronously inside touchstart unless an answer is being spoken (then: cancel, wait 250 ms for iOS
+// to hand the audio session back). While held, sessions that end by themselves restart quietly (max 3, keeping what
+// was heard). A press that got no words shows a clear message and sends a short diagnosis to the Mac log. If a press
+// got nothing at all, the next one tries the other recognition mode (continuous on/off) and keeps whichever works.
+const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+const mic = $('mic'), MAX_RESTARTS = 3, FINAL_WAIT = 1200, CLOSE_WAIT = 700;
+let H = null, lastTx = 0, pressN = 0, recN = 0, closing = null, srCont = localStorage.getItem('rv.srcont') !== '0';
+if (!SR) { mic.style.opacity = .45; $('micl').textContent = 'Type below'; $('heard').textContent = 'Speech recognition isn’t available in this browser. Safari on iPhone supports it; typing works everywhere.'; }
+const join = (a, b) => (a && b ? a.trim() + ' ' + b.trim() : (a || b || '')).trim();
+const heardNow = h => join(h.acc, join(h.sessFinal, h.interim));
+function holdStart() {
+  if (!SR) { toast('Speech recognition isn’t available here. Type instead.'); return; }
+  if (H) finish(H, 'cancel', true);
+  const h = H = { id: ++pressN, held: true, cancel: false, acc: '', sessFinal: '', interim: '', restarts: 0, t0: Date.now(), rec: null, done: false, err: null, results: 0, cont: srCont, diag: [] };
+  ui('listening', null, '', true); $('heard').textContent = '\u2026';
+  post('/listening').catch(() => {});
+  if (stopTalk()) { h.diag.push('tts-cancel'); setTimeout(() => { if (H === h && h.held && !h.done) startRec(h); }, 250); }   // barge-in
+  else startRec(h);                                                          // synchronously, inside the touch gesture
+}
+function startRec(h) {
+  if (h.done || H !== h) return;
+  const prev = closing;
+  if (prev && !prev._ended) {                                                // old instance still releasing the mic
+    h.diag.push('wait#' + prev._n); let go = false;
+    const fire = () => { if (go) return; go = true; if (closing === prev) closing = null; if (h.held && !h.done && H === h) startRec(h); };
+    prev._after.push(fire); setTimeout(fire, CLOSE_WAIT); try { prev.abort(); } catch (e) {}
+    return;
+  }
+  let r;
+  try { r = new SR(); } catch (e) { h.err = 'start'; return finish(h); }
+  const cont = h.restarts % 2 ? !h.cont : h.cont, tag = '#' + (r._n = ++recN) + (cont ? 'c' : 'n');
+  r._ended = false; r._after = []; r._results = 0;
+  h.rec = r; h.sessFinal = ''; h.interim = ''; h.gotText = false;
+  r.lang = lang; r.continuous = cont; r.interimResults = true; r.maxAlternatives = 1;
+  const mine = () => H === h && h.rec === r && !h.done;
+  const d = x => { if (H === h && h.diag.length < 24) h.diag.push(tag + ':' + x); };
+  r.onstart = () => d('start'); r.onaudiostart = () => d('audio');
+  r.onresult = e => {
+    r._results++; if (!mine()) return;
+    let f = '', i = '';
+    for (let k = 0; k < e.results.length; k++) { const x = e.results[k]; if (x.isFinal) f += x[0].transcript; else i += x[0].transcript; }
+    h.sessFinal = f.trim(); h.interim = i.trim(); h.gotText = h.gotText || !!(f || i); h.results++;
+    if (h.gotText && !h.okMode) { h.okMode = true; srCont = cont; localStorage.setItem('rv.srcont', cont ? '1' : '0'); }
+    const t = heardNow(h);
+    if (h.held) ui(h.cancel ? 'cancelling' : 'listening', null, t || '\u2026', !h.sessFinal);
+    else $('heard').textContent = t;
+    if (Date.now() - lastTx > 250 && t) { lastTx = Date.now(); post('/transcript', { text: t }).catch(() => {}); }
+  };
+  r.onerror = e => { r._err = e.error; d('err:' + e.error); if (!mine()) return; h.err = e.error; };
+  r.onend = () => {
+    r._ended = true; if (closing === r) closing = null; r._after.splice(0).forEach(f => f());
+    d('end(' + r._results + ')');
+    if (!mine()) return;
+    if (h.err === 'not-allowed' || h.err === 'service-not-allowed') return finish(h, 'denied');
+    if (h.held) {                                                            // ended by itself while still held
+      h.acc = join(h.acc, h.sessFinal || h.interim); h.sessFinal = h.interim = ''; h.rec = null;
+      if (!h.gotText) h.restarts++;
+      if (h.restarts <= MAX_RESTARTS) setTimeout(() => { if (h.held && !h.done && H === h) startRec(h); }, 150);
+      else ui('listening', 'Release to send', heardNow(h) || 'Not hearing anything. Release and hold again.', true);
+      return;
+    }
+    finish(h);
+  };
+  try { r.start(); } catch (e) { d('start-threw'); h.err = 'start'; h.rec = null; r._ended = true; if (++h.restarts <= MAX_RESTARTS) setTimeout(() => { if (h.held && !h.done && H === h) startRec(h); }, 250); }
+}
+function holdEnd(cancelled) {
+  const h = H; if (!h || !h.held) return;
+  h.held = false;
+  if (cancelled || h.cancel) return finish(h, 'cancel');
+  if (Date.now() - h.t0 < 350 && !heardNow(h)) return finish(h, 'tap');
+  if (!h.rec) return finish(h);
+  ui('sending', 'Finishing…');
+  try { h.rec.stop(); } catch (e) { return finish(h); }
+  h.finalT = setTimeout(() => finish(h), FINAL_WAIT);                        // Safari sometimes never sends the final result
+}
+function finish(h, why, silent) {
+  if (h.done) return; h.done = true; clearTimeout(h.finalT);
+  const r = h.rec; h.rec = null;
+  if (r && !r._ended) { closing = r; try { r.abort(); } catch (e) {} }        // handlers stay attached so we see its onend
+  if (H === h) H = null;
+  if (silent) return;
+  const text = heardNow(h), stop = w => post('/listening', w ? { stop: 1, why: w } : { stop: 1 }).catch(() => {});
+  if (why === 'denied') { stop('mic denied'); ui('idle', null, 'Microphone access is off. Allow it in Settings › Safari › Microphone (or Settings › Privacy › Speech Recognition), then reopen. Typing works too.', true); return; }
+  if (why === 'cancel') { stop(); ui('idle', null, 'Cancelled', true); return; }
+  if (why === 'tap') { stop(); ui('idle', null, 'Keep holding the button while you speak.', true); return; }
+  if (!text) {
+    if (!h.results) srCont = !h.cont;                                        // got nothing at all: try the other mode next press
+    stop('no words \u00b7 press ' + h.id + ' \u00b7 ' + ((Date.now() - h.t0) / 1000).toFixed(1) + ' s \u00b7 ' + lang + ' \u00b7 ' + h.diag.join(' ').slice(0, 120));
+    ui('idle', null, h.err === 'network' ? 'Speech service unreachable. Check the iPhone’s internet, or type below.' : h.err === 'audio-capture' ? 'The microphone is busy. Try again, or type below.' : MISSED, true);
+    return;
+  }
+  ask(text, Date.now() - h.t0);
+}
+function outside(x, y) { const b = mic.getBoundingClientRect(), m = 56; return x < b.left - m || x > b.right + m || y < b.top - m || y > b.bottom + m; }
+function track(x, y) { const h = H; if (!h || !h.held) return; const c = outside(x, y); if (c !== h.cancel) { h.cancel = c; ui(c ? 'cancelling' : 'listening', null, heardNow(h) || '\u2026', true); } }
+let touchId = null;
+mic.addEventListener('touchstart', e => {
+  e.preventDefault();
+  if (touchId !== null && e.touches.length > 1) return;                       // a second finger; a lost touchend never blocks the mic
+  touchId = e.changedTouches[0].identifier; unlockTTS(false); holdStart();
+}, { passive: false });
+mic.addEventListener('touchmove', e => { e.preventDefault(); for (const t of e.changedTouches) if (t.identifier === touchId) track(t.clientX, t.clientY); }, { passive: false });
+mic.addEventListener('touchend', e => { e.preventDefault(); for (const t of e.changedTouches) if (t.identifier === touchId) { touchId = null; track(t.clientX, t.clientY); holdEnd(false); } }, { passive: false });
+mic.addEventListener('touchcancel', e => { touchId = null; const h = H; if (h && h.held) { h.held = false; finish(h, 'cancel', true); post('/listening', { stop: 1 }).catch(() => {}); ui('idle', null, 'Hold again to talk.', true); } });
+// mouse fallback (desktop browsers)
+let mouse = false;
+mic.addEventListener('mousedown', e => { if (e.button) return; e.preventDefault(); mouse = true; unlockTTS(false); holdStart(); });
+window.addEventListener('mousemove', e => { if (mouse) track(e.clientX, e.clientY); });
+window.addEventListener('mouseup', () => { if (mouse) { mouse = false; holdEnd(false); } });
+window.addEventListener('blur', () => { if (H && H.held) holdEnd(true); });
+window.RV = { state: () => H && { id: H.id, held: H.held, cancel: H.cancel, restarts: H.restarts, text: heardNow(H), diag: H.diag.slice() }, tab, lang: () => lang, voice: () => { const v = voiceFor(lang); return v && v.name; }, spokenOf };   // tests/preview
+})();
+</script></body></html>

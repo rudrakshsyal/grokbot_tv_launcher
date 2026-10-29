@@ -1,0 +1,56 @@
+<!doctype html><html><head><meta charset="utf-8"><link rel="stylesheet" href="voice.css"><style>
+.orb{position:absolute;left:150px;top:330px;width:300px;height:300px;border-radius:50%;
+ background:radial-gradient(circle at 35% 30%,#fff 0%,#cfd8ff 12%,#7d8cff 35%,#3a2a9a 62%,#120c2e 100%);
+ box-shadow:0 0 120px 30px rgba(120,130,255,.45),0 0 260px 80px rgba(150,90,255,.22),inset -20px -30px 60px rgba(0,0,0,.45)}
+.orb::after{content:"";position:absolute;left:-30px;top:-30px;right:-30px;bottom:-30px;border-radius:50%;border:1.5px solid rgba(190,200,255,.35)}
+.done .orb{transform:scale(.62);left:150px;top:330px;opacity:.85}
+.orbcap{position:absolute;left:100px;width:400px;top:665px;text-align:center;font-size:24px;color:rgba(255,255,255,.75)}
+.q{position:absolute;left:100px;width:400px;top:715px;text-align:center;font-size:28px;line-height:1.35;font-weight:600}
+.tl{left:560px;top:150px;width:560px;height:780px;padding:40px 44px;box-sizing:border-box}
+.tl h3{margin:0 0 26px;font-size:20px;letter-spacing:.12em;text-transform:uppercase;color:rgba(255,255,255,.55);font-weight:600}
+.st{position:relative;padding:0 0 30px 46px}
+.st::before{content:"";position:absolute;left:11px;top:30px;bottom:0;width:2px;background:rgba(255,255,255,.16)}
+.st:last-child::before{display:none}
+.st i{position:absolute;left:0;top:4px;width:24px;height:24px;border-radius:50%;background:rgba(255,255,255,.14);box-shadow:inset 0 0 0 1.5px rgba(255,255,255,.3)}
+.st.ok i{background:#5ee08a;box-shadow:none}.st.ok i::after{content:"✓";position:absolute;left:5px;top:0;font-size:16px;color:#073;font-weight:800}
+.st.live i{background:#9fb6ff;box-shadow:0 0 0 6px rgba(159,182,255,.22),0 0 22px #9fb6ff}
+.st b{display:block;font-size:26px;font-weight:600}.st.todo b{color:rgba(255,255,255,.45)}
+.st span{display:block;font-size:19px;color:rgba(255,255,255,.6);margin-top:6px}
+.st .t{position:absolute;right:0;top:4px;font-size:18px;color:rgba(255,255,255,.45)}
+.bar{height:6px;border-radius:3px;background:rgba(255,255,255,.14);margin-top:12px;width:360px;overflow:hidden}
+.bar u{display:block;height:6px;width:58%;background:linear-gradient(90deg,#9fb6ff,#d6a2ff)}
+.ap{left:1160px;top:150px;width:660px;height:780px;padding:40px 44px;box-sizing:border-box}
+.ap h3{margin:0 0 20px;font-size:20px;letter-spacing:.12em;text-transform:uppercase;color:rgba(255,255,255,.55);font-weight:600}
+.ans{font-size:28px;line-height:1.4;margin-bottom:28px}
+.row{display:block;margin-bottom:18px;position:relative;height:150px}
+.row .art{position:absolute;left:0;top:0;width:100px;height:150px;border-radius:14px}
+.row .tx{position:absolute;left:124px;top:6px;right:0}
+.row .tx b{font-size:24px}.row .tx div{font-size:18px;color:rgba(255,255,255,.6);margin-top:6px}
+.sk{height:22px;border-radius:11px;background:rgba(255,255,255,.12);margin:16px 0}
+.working .real{display:none}.done .skel{display:none}
+</style></head><body>
+<img class="wp" src="../../images/wallpapers/geiranger.jpg"><div class="scrim"></div>
+<div class="clock">8:52 PM</div>
+<div class="orb"></div>
+<div class="orbcap" id="cap"></div>
+<div class="q">“Something funny under 2 hours on Netflix tonight”</div>
+<div class="glass tl"><h3>What I’m doing</h3><div id="tl"></div></div>
+<div class="glass ap"><h3>Answer</h3>
+ <div class="skel"><div class="sk" style="width:90%"></div><div class="sk" style="width:70%"></div><div class="sk" style="width:80%;margin-top:50px;height:150px;border-radius:14px"></div><div class="sk" style="width:80%;height:150px;border-radius:14px"></div></div>
+ <div class="real"><div class="ans">Three good comedies tonight — all on Netflix, all under 2 hours.</div>
+  <div class="row"><div class="art p1"></div><div class="tx"><b>Example Title One</b><div>2023 · 1h 38m · Comedy</div><span class="badge imdb">IMDb 7.4</span><span class="badge rt">RT 91%</span></div></div>
+  <div class="row"><div class="art p2"></div><div class="tx"><b>Example Title Two</b><div>2021 · 1h 52m · Comedy, Romance</div><span class="badge imdb">IMDb 7.1</span><span class="badge rt">RT 86%</span></div></div>
+  <div class="row"><div class="art p3"></div><div class="tx"><b>Example Title Three</b><div>2019 · 1h 44m · Comedy</div><span class="badge imdb">IMDb 6.9</span></div></div>
+ </div></div>
+<div class="label">Design B — Orb + Timeline · mockup, example titles & ratings</div>
+<script src="_state.js"></script><script>
+var W=document.body.className==='working';
+var s=[['ok','Heard you','“something funny under 2 hours on netflix tonight”','0.4s'],
+ ['ok','Understood','genre: comedy · runtime &lt; 120 min · service: Netflix (US)','0.6s'],
+ [W?'live':'ok','Searching TMDB',W?'Netflix catalogue · 214 comedies found…':'214 comedies → 12 under 2 h','1.1s'],
+ [W?'todo':'ok','Checking IMDb & Rotten Tomatoes',W?'waiting':'OMDb · 12 titles scored','1.7s'],
+ [W?'todo':'ok','Picking the best 3',W?'waiting':'ranked by IMDb, ties by RT','2.1s']];
+document.getElementById('tl').innerHTML=s.map(function(x,i){return '<div class="st '+x[0]+'"><i></i><b>'+x[1]+'</b><span>'+x[2]+'</span>'+
+ ((W&&i==2)?'<div class="bar"><u></u></div>':'')+(x[0]=='ok'?'<em class="t">'+x[3]+'</em>':'')+'</div>'}).join('');
+document.getElementById('cap').textContent=W?'Working…':'Done · 2.1 s';
+</script></body></html>
