@@ -659,7 +659,7 @@
     });
   }
   function saverBlocked() {
-    return document.hidden || discoverOn || dockOn || launching || (window.RH_Voice && RH_Voice.open) || body.classList.contains('voice-on') ||
+    return document.hidden || discoverOn || dockOn || launching || (window.RH_Voice && RH_Voice.open) || (window.RH_VoiceCard && RH_VoiceCard.busy) || body.classList.contains('voice-on') ||
       $('toast').className.indexOf('show') >= 0 || (body.classList.contains('show-credit') && !(CFG.wallpaper || {}).showCredit) || rows[focus.r] !== dockRow;
   }
   function trySaver(force) {

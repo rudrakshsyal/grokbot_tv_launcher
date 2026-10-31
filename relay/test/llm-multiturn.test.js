@@ -4,7 +4,8 @@
 //   every assistant tool_calls message has ids + type + string arguments and is followed by exactly its tool results
 //   (same ids, same order, with name); no orphan tool messages; the first call of each step in the CURRENT turn
 //   carries its thought signature (extra_content.google.thought_signature) -> otherwise HTTP 400 like Gemini.
-// Also: compact-memory retry on a 400, parser fallback stored in memory, idle expiry, /chat/reset, language rule,
+// Also: compact-memory retry on a 400, parser fallback stored in memory, v6 persisted chats (no idle expiry, rolling
+// summary, /chats API), /chat/reset, language rule,
 // 429 retryDelay wait, and two overlapping /ask requests.
 // usage: node relay/test/llm-multiturn.test.js
 const http = require('http'), assert = require('assert');
@@ -40,6 +41,7 @@ const say = t => ({ role: 'assistant', content: t, extra_content: { google: { th
 function reply(ms) {
   const lastUser = [...ms].reverse().find(m => m.role === 'user').content, last = ms[ms.length - 1];
   const hist = JSON.stringify(ms.slice(1, ms.lastIndexOf(ms.find(m => m.role === 'user' && m.content === lastUser))));
+  if (/^Existing summary/.test(lastUser)) return say('The user wanted a funny movie on Netflix; Yo-Yo suggested The Nice Guys, then Game Night.');
   if (/funny movie/.test(lastUser)) return last.role === 'tool' ? say('Try **The Nice Guys** on Netflix, it runs about two hours. 😂') : call('search_titles', { genres: ['comedy'], platform: 'netflix', kind: 'movie' }, true);
   if (/shorter/.test(lastUser)) return say(/Nice Guys/.test(hist) && /funny movie/.test(hist) ? 'Shorter than The Nice Guys: Game Night is 100 minutes.' : 'Shorter than what?');
   if (/open it/.test(lastUser)) return last.role === 'tool' ? say(/Game Night/.test(hist) ? 'Opening Netflix for Game Night.' : 'Opening Netflix.') : call('launcher_action', { action: 'open_app', app: 'netflix' });
@@ -63,7 +65,7 @@ const fake = http.createServer((req, res) => {
 const httpPost = (port, p, o) => new Promise((resolve, reject) => { const d = JSON.stringify(o); const r = http.request({ host: '127.0.0.1', port, path: p, method: 'POST', headers: { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(d) } }, res => { let b = ''; res.on('data', c => b += c); res.on('end', () => resolve(JSON.parse(b))); }); r.on('error', reject); r.end(d); });
 
 fake.listen(0, '127.0.0.1', async () => {
-  Object.assign(process.env, { METRICS_DIR: require('fs').mkdtempSync(require('os').tmpdir() + '/llmm-'), METRICS: '0', LLM_BASE_URL: 'http://127.0.0.1:' + fake.address().port + '/v1/', LLM_API_KEY: 'test', LLM_MODEL: 'fake-gemini', OLLAMA_FALLBACK: '0', LOG: '0', TMDB_API_KEY: '', OMDB_API_KEY: '' });
+  Object.assign(process.env, { METRICS_DIR: require('fs').mkdtempSync(require('os').tmpdir() + '/llmm-'), METRICS: '0', LLM_BASE_URL: 'http://127.0.0.1:' + fake.address().port + '/v1/', LLM_API_KEY: 'test', LLM_MODEL: 'fake-gemini', OLLAMA_FALLBACK: '0', LOG: '0', TMDB_API_KEY: '', OMDB_API_KEY: '', GEMINI_API_KEY: '', CHATS_DIR: require('fs').mkdtempSync(require('os').tmpdir() + '/llmc-'), DATA_DIR: require('fs').mkdtempSync(require('os').tmpdir() + '/llmd-'), BUDGET_FILE: require('os').tmpdir() + '/llm-budget-' + process.pid + '.json' });
   const origWarn = console.warn, warns = []; console.warn = (...a) => warns.push(a.join(' '));
   const S = require('../server'), LLM = require('../brain-llm'), ask = S.ask;
   let pass = 0; const ok = (name, c, info) => { assert.ok(c, name + (info ? ' :: ' + info : '')); pass++; console.log('PASS', name); };
@@ -104,18 +106,51 @@ fake.listen(0, '127.0.0.1', async () => {
     await ask('and the day after?', { client: 'p2' });
     ok('parser turn stored as plain text memory for the next LLM turn', seen[seen.length - 1].body.messages.some(m => m.role === 'user' && m.content === 'open hulu') && seen[seen.length - 1].body.messages.some(m => m.role === 'assistant' && /Opening Hulu/.test(m.content)));
 
-    // --- idle expiry (30 min default) + explicit reset ---
-    ok('memory idle default is 30 min, 8 turns', LLM.IDLE_MS === 30 * 60 * 1000 && LLM.MAX_TURNS === 8);
-    LLM.SESS.get('tv-user').at = Date.now() - 12 * 60 * 1000;
+    // --- v6: no idle expiry; chats persist on disk; rolling summary of older turns ---
+    const CH = require('../chats');
+    ok('memory: 8 recent turns, no idle timeout', LLM.MAX_TURNS === 8 && LLM.IDLE_MS === undefined && LLM.SESS === undefined);
+    const userChat = LLM.history('tv-user').id;
+    CH.cache.clear();   // as if the relay restarted: the chat comes back from disk
+    LLM.history('tv-user').updated = Date.now() - 3 * 24 * 3600e3;
     await ask('what did I ask first?', { client: 'tv-user' });
-    ok('12 min later the chat is still remembered', /funny movie/.test(JSON.stringify(seen[seen.length - 1].body.messages)));
-    LLM.SESS.get('tv-user').at = Date.now() - 31 * 60 * 1000;
-    const steps = []; await LLM.run('what did I ask first?', { step: async (l, fn) => { const d = await fn(); steps.push(l + ' | ' + d); return d; } }, 'tv-user');
-    ok('after 31 min idle: new conversation, marked expired', /New conversation \| previous chat expired/.test(steps.join('\n')) && !/funny movie/.test(JSON.stringify(seen[seen.length - 1].body.messages.slice(1, -1))), steps[0]);
+    ok('days later / after a restart the chat is still remembered (from data/chats)', /funny movie/.test(JSON.stringify(seen[seen.length - 1].body.messages)) && LLM.history('tv-user').id === userChat);
+    ok('chat file on disk is mode 600 and holds the display messages', (require('fs').statSync(CH.DIR + '/' + userChat + '.json').mode & 0o777) === 0o600 && CH.get(userChat).messages.filter(m => m.role === 'user').length >= 5);
+    const steps = []; await LLM.run('what did I ask first?', { step: async (l, fn) => { const d = await fn(); steps.push(l + ' | ' + d); return d; } }, userChat);
+    ok('timeline step says what is remembered', /^Remembering \| \d+ recent turns/.test(steps[0]), steps[0]);
+    // push the chat past 8 turns: overflow becomes notes, then one summary call (counted in the budget)
+    const sumBefore = seen.filter(x => /^Existing summary/.test((x.body.messages[1] || {}).content || '')).length;
+    for (let i = 0; i < 6; i++) await ask('what did I ask first?', { client: 'tv-user' });
+    await new Promise(r => setTimeout(r, 400));
+    const rc = CH.get(userChat), sums = seen.filter(x => /^Existing summary/.test((x.body.messages[1] || {}).content || ''));
+    ok('older turns folded into a rolling summary (1 small LLM call, max_tokens capped)', rc.turns.length <= 8 && /Nice Guys/.test(rc.summary) && sums.length === sumBefore + 1 && sums[sums.length - 1].body.max_tokens <= 400, JSON.stringify({ t: rc.turns.length, s: rc.summary, o: rc.older.length }));
+    await ask('what did I ask first?', { client: 'tv-user' });
+    ok('summary is in the next system prompt', /Earlier in this chat/.test(seen[seen.length - 1].body.messages[0].content) && /Nice Guys, then Game Night/.test(seen[seen.length - 1].body.messages[0].content));
+    ok('budget counted the summary call', LLM.budgetStatus().requests >= seen.length - 2, JSON.stringify(LLM.budgetStatus()));
+    ok('system prompt is a general assistant (not TV-only)', /general|anything/i.test(seen[seen.length - 1].body.messages[0].content));
 
     const srv = S.server.listen(0, '127.0.0.1'); await new Promise(r => srv.once('listening', r)); const port = srv.address().port;
     await ask('find a funny movie on Netflix', { client: 'rz' });
-    ok('POST /chat/reset clears that phone\'s memory', (await httpPost(port, '/chat/reset', { client: 'rz' })).ok && !LLM.SESS.has('rz'));
+    ok('POST /chat/reset starts a fresh chat for that phone', (await httpPost(port, '/chat/reset', { client: 'rz' })).ok && !LLM.LEGACY.has('rz'));
+
+    // --- /chats API + chatId on /ask ---
+    const httpGet = p => new Promise(r => http.get({ host: '127.0.0.1', port, path: p }, res => { let b = ''; res.on('data', c => b += c); res.on('end', () => r(JSON.parse(b))); }));
+    const n1 = await httpPost(port, '/ask', { text: 'find a funny movie on Netflix', client: 'phone1', newChat: true });
+    ok('/ask with newChat -> new chat id + auto title', /^c[a-z0-9]+$/.test(n1.chatId) && n1.chatTitle === 'Find a funny movie on Netflix', JSON.stringify([n1.chatId, n1.chatTitle]));
+    const n2 = await httpPost(port, '/ask', { text: 'what about something shorter?', client: 'phone1', chatId: n1.chatId });
+    ok('/ask with chatId continues that chat', n2.chatId === n1.chatId && /Game Night/.test(n2.text), n2.text);
+    const n3 = await httpPost(port, '/ask', { text: 'what about something shorter?', client: 'phone1', newChat: true });
+    ok('a second chat has its own memory', n3.chatId !== n1.chatId && /Shorter than what/.test(n3.text), n3.text);
+    const list = await httpGet('/chats');
+    ok('GET /chats lists both, newest first, with previews', list.chats[0].id === n3.chatId && list.chats.some(c => c.id === n1.chatId && c.count === 4), JSON.stringify(list.chats.slice(0, 2)));
+    const full = await httpGet('/chats/' + n1.chatId);
+    ok('GET /chats/<id> returns the messages (user/assistant, brain)', full.messages.length === 4 && full.messages[1].role === 'assistant' && full.messages[1].brain === 'fake-gemini');
+    const rn = await httpPost(port, '/chats/' + n1.chatId + '/rename', { title: '  Movie night  ' });
+    ok('rename', rn.title === 'Movie night' && (await httpGet('/chats/' + n1.chatId)).title === 'Movie night');
+    ok('bad chat ids rejected', (await httpGet('/chats/..%2Fx')).error && (await httpPost(port, '/chats/c..%2f..%2fetc/delete', {})).error);
+    const del = await httpPost(port, '/chats/' + n3.chatId + '/delete', {});
+    ok('delete removes the chat and its file', del.ok && !(await httpGet('/chats')).chats.some(c => c.id === n3.chatId) && !require('fs').existsSync(CH.DIR + '/' + n3.chatId + '.json'));
+    const n4 = await httpPost(port, '/ask', { text: 'what did I ask first?', client: 'phone1', chatId: 'cdeleted000000' });
+    ok('unknown chatId -> a new chat (no crash)', /^c/.test(n4.chatId) && n4.chatId !== 'cdeleted000000' && /do not remember/.test(n4.text), n4.text);
 
     // --- language rule ---
     const h = await httpPost(port, '/ask', { text: 'namaste', client: 'hin', lang: 'hi-IN' });
@@ -137,7 +172,7 @@ fake.listen(0, '127.0.0.1', async () => {
     const [o1, o2] = await Promise.all([p1, p2]);
     ok('overlapping /ask: first answered "superseded" right away (not a 90 s timeout)', o1.type === 'error' && o1.superseded && Date.now() - t0 < 5000, JSON.stringify(o1));
     ok('overlapping /ask: second gets a normal answer', o2.type === 'answer' && o2.text, JSON.stringify(o2).slice(0, 200));
-    ok('superseded turn did not write memory', !(LLM.SESS.get('cc').turns || []).some(t => /funny/.test(t[0].content)), JSON.stringify(LLM.SESS.get('cc').turns.map(t => t[0].content)));
+    ok('superseded turn did not write memory', !(LLM.history('cc').turns || []).some(t => /funny/.test(t[0].content)), JSON.stringify(LLM.history('cc').turns.map(t => t[0].content)));
     delay = 0; srv.close();
     console.log(pass + ' multi-turn checks passed');
   } catch (e) { console.log('FAIL', e.message); process.exitCode = 1; }

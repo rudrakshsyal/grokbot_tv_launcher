@@ -14,11 +14,20 @@ relay/certs/
 .env
 .env.*
 *.env
+!.env.example
+!relay/.env.example
 .env.sh
 relay/.env.sh
 *.key
 *.pem
 *.p12
+
+# Relay runtime data: saved chats (data/chats), learned TV info (data/tv.json)
+relay/data/
+
+# Local speech-to-text install (tools/install-whisper.sh puts it in ~/.glasshome by default)
+whisper.cpp/
+*.bin
 
 # Logs, metrics and eval reports (may contain your prompts)
 logs/

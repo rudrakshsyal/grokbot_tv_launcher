@@ -5,7 +5,8 @@
  * Assistant name: Yo-Yo.
  * Keys: Play/Pause · Yo-Yo (or "v" in a browser) toggles the overlay · Back closes · ←/→/↑/↓ pick a result · OK opens its app
  *       · Info (or Yellow; "i" in a browser) expands the request stats card under the answer (collapsed by default).
- * Config: RH_CONFIG.voice = { enabled, relay }   URL override: ?relay=http://host:8787   ?relay=off disables. */
+ * v6.2: questions asked from the phone show in a small corner card instead (js/tvcard.js); Play/Pause still opens this view.
+ * Config: RH_CONFIG.voice = { enabled, relay, card }   URL override: ?relay=http://host:8787   ?relay=off disables. */
 (function () {
   'use strict';
   var CFG = (window.RH_CONFIG && window.RH_CONFIG.voice) || {};
@@ -39,8 +40,11 @@
     el = { orb: $('vxOrb'), cap: $('vxCap'), q: $('vxQ'), steps: $('vxSteps'), ans: $('vxAns'), brain: $('vxBrain'), tl: $('vxTl'), ap: $('vxAp'), help: $('vxHelp'), stats: $('vxStats'), sd: $('vxSd') };
     if (window.RH_Wallpaper && RH_Wallpaper.addGlass) { RH_Wallpaper.addGlass(el.tl); RH_Wallpaper.addGlass(el.ap); }
   }
+  function cardMode() { return !API.open && !!(window.RH_VoiceCard && RH_VoiceCard.enabled); }
+  function surface() { if (!cardMode()) show(); }   // v6.2: with the corner card (js/tvcard.js) the full overlay only opens on Play/Pause
   function show() {
     build();
+    if (window.RH_VoiceCard && RH_VoiceCard.hideCard) RH_VoiceCard.hideCard();
     if (!API.open) {
       API.open = true; document.body.classList.add('voice-on'); root.classList.add('on');
       if (window.RH_Home && RH_Home.wake) RH_Home.wake();
@@ -56,7 +60,7 @@
   function armClose() { clearTimeout(closeT); closeT = setTimeout(hide, phase === 'done' ? 90000 : 120000); }   // never stays up forever
   function setPhase(p) {
     phase = p; API.state = p;
-    root.className = 'vx on vx-' + p;
+    root.className = 'vx' + (API.open ? ' on' : '') + ' vx-' + p;   // v6.2: phone questions may update it while closed (corner card mode)
     var total = 0; for (var i = 0; i < steps.length; i++) total += steps[i].ms || 0;   // steps run one after another
     el.cap.textContent = p === 'listening' ? 'Listening\u2026' : p === 'working' ? 'Working\u2026' : p === 'done' ? 'Done \u00b7 ' + secs(total) : p === 'error' ? 'Something went wrong' : 'Ask from your phone';
   }
@@ -122,23 +126,25 @@
 
   function onEvent(ev) {
     if (!ev || !ev.type) return;
+    if (ev.type === 'tv-show') { if (window.RH_VoiceCard) RH_VoiceCard.show(ev); return; }   // phone "Show on TV" (relay POST /tv/show)
     if (ev.session && sess && ev.session < sess) return;   // late events from a replaced request
+    if (cardMode() && /^(listening|idle|transcript|start|step|answer|error|action)$/.test(ev.type)) RH_VoiceCard.event(ev);
     switch (ev.type) {
-      case 'listening': show(); if (phase !== 'working') { reset(''); setPhase('listening'); } return;
+      case 'listening': surface(); if (phase !== 'working') { reset(''); setPhase('listening'); } return;
       case 'idle': if (API.open && phase === 'listening') hide(); return;
-      case 'transcript': show(); if (phase === 'listening' || phase === 'idle' || phase === 'done' || phase === 'error') { if (phase !== 'listening') { reset(''); setPhase('listening'); } }
+      case 'transcript': surface(); if (phase === 'listening' || phase === 'idle' || phase === 'done' || phase === 'error') { if (phase !== 'listening') { reset(''); setPhase('listening'); } }
         el.q.textContent = '\u201c' + ev.text + '\u201d'; el.q.className = 'vx-q' + (ev.final ? '' : ' interim'); return;
-      case 'start': sess = ev.session; show(); reset(ev.query); setPhase('working'); return;
+      case 'start': sess = ev.session; surface(); reset(ev.query); setPhase('working'); return;
       case 'step':
         if (ev.session !== sess) return;
-        show();
+        surface();
         var s = null; for (var i = 0; i < steps.length; i++) if (steps[i].id === ev.id) s = steps[i];
         if (ev.phase === 'start') { if (!s) steps.push({ id: ev.id, label: ev.label, state: 'live', start: ev.ts }); }
         else { if (!s) { s = { id: ev.id, label: ev.label }; steps.push(s); } s.state = ev.state === 'err' ? 'err' : 'ok'; s.detail = ev.detail; s.ms = ev.ms; s.end = ev.ts; }
         if (phase !== 'working') setPhase('working');
         renderSteps(); return;
-      case 'answer': if (ev.session !== sess) return; show(); renderStats(ev.stats); renderAnswer(ev.text, ev.items, ev.brain); setPhase('done'); armClose(); return;
-      case 'error': if (ev.session !== sess) return; show(); el.ans.innerHTML = '<div class="vx-ans">' + esc(ev.message) + '</div>'; items = []; paintSel(); setPhase('error'); return;
+      case 'answer': if (ev.session !== sess) return; surface(); renderStats(ev.stats); renderAnswer(ev.text, ev.items, ev.brain); setPhase('done'); armClose(); return;
+      case 'error': if (ev.session !== sess) return; surface(); el.ans.innerHTML = '<div class="vx-ans">' + esc(ev.message) + '</div>'; items = []; paintSel(); setPhase('error'); return;
       case 'remote':   // phone remote app: launcher-only actions (POST /remote/launcher)
         if (ev.action === 'yoyo') { if (API.open) hide(); else openIdle(); }
         else if (ev.action === 'close') hide();
@@ -172,6 +178,7 @@
   API.onKey = function (e) {
     var k = e.keyCode;
     var toggle = k === KEY.PLAYPAUSE || k === KEY.PLAY || (k === KEY.V && !window.RH_IS_TIZEN);
+    if (!API.open && window.RH_VoiceCard && RH_VoiceCard.onKey(e)) return true;   // "Show on TV" panel / Back on the corner card
     if (!API.open) {
       if (toggle && API.available) {
         e.preventDefault(); openIdle();
@@ -189,6 +196,7 @@
     return true;   // the overlay owns the remote while open
   };
   API._event = onEvent;   // tests
+  API.close = hide;
   API.selected = function () { return sel; };
   API.steps = function () { return steps.slice(); };
   API.stats = function () { return { stats: stats, open: statsOpen, line: el.stats ? el.stats.textContent : '' }; };

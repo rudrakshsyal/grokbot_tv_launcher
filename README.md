@@ -10,7 +10,12 @@ It is plain HTML/CSS/JavaScript (no framework, no build step besides a small she
 
 **New in v4/v5 (all optional):** **Yo-Yo**, a voice assistant you talk to from your iPhone (answers appear on the TV
 with posters, IMDb and Rotten Tomatoes scores), an **iPhone remote** web app, **day/night** looks that follow sunrise
-and sunset, an **HDMI inputs + Settings** row in the dock and a **picks screensaver**. See [What's new](#whats-new-in-v4-and-v5).
+and sunset, an **HDMI inputs + Settings** row in the dock and a **picks screensaver**.
+
+**New in v6–v6.2 (all optional, relay + phone):** a ChatGPT-style **Yo-Yo chat** on the phone with saved chats and
+multi-turn memory, reliable **hold-to-talk** (the phone records, the relay transcribes), **Wake-on-LAN** power-on,
+**"Play X on &lt;service&gt;"**, a small **Yo-Yo reply card** in the corner of the TV and **Show on TV** for long answers.
+See [What's new](#whats-new-in-v6-v61-and-v62).
 
 | Ambient (what you see most of the time) | Dock revealed |
 |---|---|
@@ -23,14 +28,20 @@ and sunset, an **HDMI inputs + Settings** row in the dock and a **picks screensa
 | ![Day](docs/preview-v5-day.jpg) | ![Night](docs/preview-v5-night.jpg) |
 | **v5: Inputs + Settings row** (desktop preview with mock inputs) | **v4: Yo-Yo answer on the TV** (recorded demo session) |
 | ![Inputs row](docs/preview-v5-dock-inputs.jpg) | ![Yo-Yo](docs/preview-v4-voice-done.jpg) |
+| **v6.2: Yo-Yo reply card** (corner of the TV, never takes focus) | **v6.2: Show on TV** (long answer, scrollable panel) |
+| ![Corner card](docs/preview-v62-card.jpg) | ![Show on TV panel](docs/preview-v62-panel.jpg) |
 
-*(Screenshots are headless desktop renders at 1920×1080.)*
+| **v6: Yo-Yo chat on the phone** | **v6.2: phone with "Show on TV"** |
+|---|---|
+| <img src="docs/preview-v6-chat.jpg" width="300" alt="Yo-Yo chat"> | <img src="docs/preview-v62-phone.jpg" width="300" alt="Show on TV button"> |
+
+*(Screenshots are headless desktop renders at 1920×1080 and iPhone size, with demo data.)*
 
 ---
 
 ## Contents
 
-0. [What's new in v4 and v5](#whats-new-in-v4-and-v5)
+0. [What's new in v6, v6.1 and v6.2](#whats-new-in-v6-v61-and-v62) · [v4 and v5](#whats-new-in-v4-and-v5)
 1. [Honest limits (read first)](#honest-limits-read-first)
 2. [Compatibility](#compatibility)
 3. [What you need](#what-you-need)
@@ -46,13 +57,48 @@ and sunset, an **HDMI inputs + Settings** row in the dock and a **picks screensa
 5. [Remote controls](#remote-controls)
    - [Day/night, inputs row, screensaver (v5)](#daynight-inputs-row-screensaver-v5)
    - [Yo-Yo voice assistant + iPhone remote (v4, optional)](#yo-yo-voice-assistant--iphone-remote-v4-optional)
-6. [Trying it on your computer first](#trying-it-on-your-computer-first)
+   - [Yo-Yo chat, hold-to-talk and languages (v6)](#yo-yo-chat-hold-to-talk-and-languages-v6)
+   - [Wake-on-LAN (v6)](#wake-on-lan-v6)
+   - [Play X on &lt;service&gt; (v6)](#play-x-on-service-v6)
+   - [Yo-Yo reply card and Show on TV (v6.2)](#yo-yo-reply-card-and-show-on-tv-v62)
+   - [Relay endpoints](#relay-endpoints)
+6. [Trying it on your computer first](#trying-it-on-your-computer-first) (and [Tests](#tests))
 7. [Troubleshooting](#troubleshooting)
 8. [Uninstall / undo everything](#uninstall--undo-everything)
 9. [Project layout](#project-layout)
-10. [Credits & licenses](#credits--licenses)
+10. [Changelog](#changelog)
+11. [Credits & licenses](#credits--licenses)
 
 ---
+
+## What's new in v6, v6.1 and v6.2
+
+**v6.2: Yo-Yo on the TV without getting in the way**
+- **Reply card:** when you ask Yo-Yo from the phone, a small glass card in the bottom-right corner of the TV shows the
+  question, the answer and a state orb. It appears **only while the launcher is on screen**, **never takes focus** (the
+  remote keeps driving Home) and **fades by itself**. Turn it off with `voice: { …, card: false }` in `js/config.js` or
+  `?vcard=0` in the URL (then phone questions open the full overlay as before).
+- **Show on TV:** long answers (250+ characters) get a **Show on TV** button on the phone (two taps: the first warns that
+  the TV switches to Home). The relay brings the launcher forward (`POST /tv/show`) and the TV shows a scrollable panel;
+  **OK** = "Back to &lt;app&gt;" (`POST /tv/back`) returns to the app you were watching.
+- **Limit:** a Tizen web app can't draw on top of other apps, so nothing appears over Netflix, YouTube and so on.
+
+**v6.1: Play fixes**
+- Netflix: when it starts cold on "Who's watching?", the relay presses OK on the highlighted profile and re-sends the
+  title link (best effort). App launches use **numeric Samsung app ids** over the TV's REST API with an 8 s timeout.
+- YouTube is honest: it **opens the YouTube app**; to play a specific video, cast from the YouTube app on your phone.
+
+**v6: Chat, hold-to-talk, Wake-on-LAN, Play X on &lt;service&gt;** (relay + phone; the TV app's overlay is unchanged)
+- **Yo-Yo chat:** a ChatGPT-style chat tab on the phone (bubbles, text box, big mic). Every chat is **saved on the relay
+  computer** in `relay/data/chats/` (git-ignored, owner-only permissions); ☰ lists, renames and deletes chats, **+** starts
+  a new one. Multi-turn memory: a rolling summary plus the last 8 turns go to the model.
+- **Hold-to-talk that works every time:** iPhone Safari's `webkitSpeechRecognition` tended to abort after the first press in
+  a Home Screen web app, so the phone now records with `MediaRecorder` and the relay transcribes it (`POST /stt`) with
+  **Gemini** (default, same free key) or optional **local whisper.cpp** (`relay/tools/install-whisper.sh`).
+- **English / हिन्दी / Hinglish** toggle (recognition, reply language and voice), **spoken replies** in the iPhone's own
+  voice, and a **stats line** (time, model, tokens) under each answer.
+- **Wake-on-LAN:** the phone's power button (and "play …" while the TV is off) wakes the TV, then the launcher opens.
+- **"Play X on &lt;service&gt;":** "play Breaking Bad on Netflix" plays it (deep link via DIAL); other services open the app.
 
 ## What's new in v4 and v5
 
@@ -89,7 +135,15 @@ and sunset, an **HDMI inputs + Settings** row in the dock and a **picks screensa
 - **No cross-app watch history.** Netflix, Prime, etc. don't share what you're watching with other apps. "Resume Watching"
   only works if you use [Trakt](https://trakt.tv) (and something that scrobbles to Trakt); without it that row simply hides.
 - **"Open in &lt;App&gt;", not "Play".** Streaming apps don't offer a public way to jump straight to a title, so a pick
-  opens the right app and you find the title there. Only YouTube trailers open directly.
+  opens the right app and you find the title there. Only YouTube trailers open directly. The one exception is Yo-Yo's
+  "play X on Netflix" (v6), which uses Netflix's DIAL deep link; it's best effort (it needs Wikidata to know the title's
+  Netflix id, and the profile picker step may need you).
+- **YouTube can't be told what to play from outside.** "Play X on YouTube" **opens the YouTube app**; the TV refuses DIAL
+  video links from a third party and deep links only open YouTube's home. To play a specific video, cast it from the
+  YouTube app on your phone. (An experimental key-press search, `YT_MODE=search`, is off by default and unreliable.)
+- **Nothing can appear on top of other apps.** A Tizen web app can't overlay Netflix, YouTube or live TV. The v6.2 reply
+  card only shows while Glass Home is on screen; **Show on TV** brings Glass Home forward and offers "Back to &lt;app&gt;".
+- **Wake-on-LAN needs a TV setting.** Turn on **Power On with Mobile**; Wi-Fi TVs may not wake after a long deep standby.
 - **Developer-mode apps aren't permanent.** Apps sideloaded in Developer Mode can disappear or stop launching after
   firmware updates, factory resets, or when the developer certificate expires. You may need to rebuild, re-sign and
   reinstall from time to time (it takes a minute once everything is set up).
@@ -101,8 +155,11 @@ and sunset, an **HDMI inputs + Settings** row in the dock and a **picks screensa
 - Weather is in °F (Open-Meteo). App IDs and streaming-service matching are tuned for the **US** region.
 - **Yo-Yo and the iPhone remote need a computer that stays on** (the relay). It has no authentication: anyone on your
   Wi-Fi can send it requests, including TV key presses. Keep it on your home network and **never port-forward it**.
-- **The iPhone mic needs HTTPS.** Safari only allows speech recognition on a secure page, so voice from the phone needs
+- **The iPhone mic needs HTTPS.** Safari only allows the microphone on a secure page, so voice from the phone needs
   the optional local certificate in [HTTPS for the iPhone mic](#https-for-the-iphone-mic-optional). Typing questions works without it.
+- **Saved chats live on the relay computer** (`relay/data/chats/`, plain JSON, owner-only permissions). With the Gemini
+  brain or Gemini speech-to-text, your questions and recordings are sent to Google; use Ollama + whisper.cpp to keep
+  everything local.
 - **Free AI tiers change.** Provider limits, model names and data-use terms are set by the provider; on Google's free
   tier your prompts may be used to improve their products. The relay falls back to its built-in parser when the AI is
   unavailable or over your daily cap.
@@ -433,11 +490,25 @@ iPhone (Safari page) ──POST /ask──▶ relay on your Mac ──SSE /event
 1. Install Node.js 14 or newer (`node -v`; get it from <https://nodejs.org> or `brew install node`).
 2. Give the **Mac** and the **TV** fixed addresses: in your router's admin page add a **DHCP reservation** for each.
    The examples below use `YOUR-MAC-IP` and `YOUR-TV-IP` (e.g. `192.168.1.20` and `192.168.1.50`).
-3. Start it from the repo (keys are optional; never commit them):
+3. Put your settings in `relay/.env` (git-ignored; keys are optional; never commit them) and start the relay:
    ```sh
    cd relay
-   TV_IP=YOUR-TV-IP TMDB_API_KEY=… OMDB_API_KEY=… GEMINI_API_KEY=… node server.js
+   cp .env.example .env && chmod 600 .env     # edit it: TV_IP, TV_MAC, GEMINI_API_KEY, TMDB_API_KEY, OMDB_API_KEY, …
+   set -a && . ./.env && set +a && node server.js
    ```
+   The variables you'll most likely set (placeholders only; see [`relay/.env.example`](relay/.env.example) and
+   [`relay/README.md`](relay/README.md) for all of them):
+
+   | Variable | Example | What for |
+   |---|---|---|
+   | `TV_IP` | `192.168.1.50` | Remote tab, app launches, auto-open, Show on TV |
+   | `TV_MAC` | `aa:bb:cc:dd:ee:ff` | Wake-on-LAN (or leave empty: the relay learns it once the TV is seen on) |
+   | `GEMINI_API_KEY` | *your key* | Brain and speech-to-text (free tier) |
+   | `TMDB_API_KEY`, `OMDB_API_KEY` | *your keys* | Titles, posters, providers, IMDb / Rotten Tomatoes scores |
+   | `BRAIN_PRESET` | `gemini` | `gemini`, `groq` or `ollama` |
+   | `WEATHER_LAT`, `WEATHER_LON`, `WEATHER_PLACE`, `HOME_TZ` | San Jose / `America/Los_Angeles` | Weather answers and "today" |
+   | `STT` | `auto` | `auto` (whisper.cpp if installed, else Gemini), `whisper`, `gemini`, `off` |
+   | `YT_MODE` | `dial` | `dial` (default: opens YouTube) or `search` (experimental) |
    The startup output lists the brain chain, which keys are present (never their values) and the phone URL.
    macOS may ask to allow incoming connections for `node`: click **Allow**.
    - No AI key? `BRAIN=free node server.js` uses only the built-in parser (TMDB/OMDb/weather still work).
@@ -470,9 +541,9 @@ and writes a report to `relay/evals/reports/` (git-ignored).
 ### Step C — The iPhone page
 
 1. On the iPhone (same Wi-Fi), open `http://YOUR-MAC-IP:8787/` in Safari → Share → **Add to Home Screen**.
-2. **Yo-Yo tab:** press and hold the mic, talk, release to send (slide off to cancel). Answers are spoken in the
-   iPhone's own voice (tap the speaker to repeat). **English / हिन्दी / Hinglish** switches recognition, reply language
-   and voice. **New chat** clears memory (it also resets after 30 min idle: `LLM_MEMORY_MS`, `LLM_MEMORY_TURNS`).
+2. **Yo-Yo tab:** a chat (see [v6](#yo-yo-chat-hold-to-talk-and-languages-v6)). Press and hold the mic, talk, release
+   to send (slide off to cancel), or type. Answers are spoken in the iPhone's own voice (tap the speaker to repeat).
+   **English / हिन्दी / Hinglish** switches recognition, reply language and voice. ☰ lists saved chats, **+** starts a new one.
    Better voices: Settings › Accessibility › Spoken Content › Voices → download an *Enhanced* voice.
 3. **Remote tab:** D-pad or touchpad, Back, Home, Play/Pause, volume, mute, power and app shortcuts (from your dock).
 4. **Home tab:** placeholder for future smart-home controls.
@@ -481,9 +552,10 @@ The microphone needs the HTTPS page from the next section; typing works on plain
 
 ### HTTPS for the iPhone mic (optional)
 
-Safari only allows speech recognition on a secure page. The relay serves HTTPS on port `8788` (`HTTPS_PORT`) when
-`relay/certs/server.key` and `relay/certs/server.crt` exist (`relay/certs/` is git-ignored). Make your own tiny local CA
-that is **name-constrained** so it can only ever vouch for your Mac's IP, even if its key leaked:
+Safari only allows the microphone (recording and speech recognition) on a secure page. The relay serves HTTPS on port
+`8788` (`HTTPS_PORT`) when `relay/certs/server.key` and `relay/certs/server.crt` exist (`relay/certs/` is git-ignored).
+**Shortcut (v6):** `bash relay/tools/make-certs.sh YOUR-MAC-IP` does all of the following for you. Or by hand: make your
+own tiny local CA that is **name-constrained** so it can only ever vouch for your Mac's IP, even if its key leaked:
 
 ```sh
 cd relay && mkdir -p certs && cd certs
@@ -528,8 +600,8 @@ Then on the iPhone:
 3. The token is saved to `relay/.secrets/tv-token.json` (mode 600, git-ignored) and reused.
    - Timed out? Check Access Notification, same network/subnet (no guest network or client isolation), then **Retry pair**.
    - Blocked? Device Connection Manager → **Device List** → remove or allow "Glass Home Remote", then Retry pair.
-4. **Power on from the phone:** set `TV_MAC` (TV Settings → Support → About This TV) and turn on Settings → General →
-   Network → Expert Settings → **Power On with Mobile**. The relay sends Wake-on-LAN when the TV is off.
+4. **Power on from the phone:** set `TV_MAC` in `relay/.env` (TV Settings → Support → About This TV) and turn on Settings → General →
+   Network → Expert Settings → **Power On with Mobile**. The relay sends Wake-on-LAN when the TV is off (see [Wake-on-LAN](#wake-on-lan-v6)).
 5. **Auto-open the launcher:** the relay polls the TV every 5 s; when it turns on, it opens Glass Home (no pairing
    needed). `AUTO_LAUNCH=0` turns this off, `TV_POLL=0` stops the power watch. If you changed the app ID, set `LAUNCHER_APP_ID`.
 
@@ -537,11 +609,14 @@ Without `TV_IP` the Remote tab and auto-open stay off; Yo-Yo still works.
 
 ### Step E — Keep the relay running (macOS launchd)
 
-Save your settings in `relay/.env.sh` (git-ignored, `chmod 600`), for example:
+Keep your settings in `relay/.env` from Step A (git-ignored, `chmod 600`), for example:
 ```sh
-export TV_IP=YOUR-TV-IP TV_MAC=aa:bb:cc:dd:ee:ff
-export TMDB_API_KEY=… OMDB_API_KEY=… GEMINI_API_KEY=…
-export WEATHER_LAT=… WEATHER_LON=… WEATHER_PLACE="Your City" HOME_TZ=America/New_York
+TV_IP=YOUR-TV-IP
+TV_MAC=aa:bb:cc:dd:ee:ff
+TMDB_API_KEY=…
+OMDB_API_KEY=…
+GEMINI_API_KEY=…
+WEATHER_LAT=… WEATHER_LON=… WEATHER_PLACE="Your City" HOME_TZ=America/New_York
 ```
 Create `~/Library/LaunchAgents/com.example.glasshome.relay.plist` (replace `/path/to/repo`, and use `which node` for the node path):
 ```xml
@@ -551,7 +626,7 @@ Create `~/Library/LaunchAgents/com.example.glasshome.relay.plist` (replace `/pat
   <key>Label</key><string>com.example.glasshome.relay</string>
   <key>ProgramArguments</key><array>
     <string>/bin/sh</string><string>-c</string>
-    <string>cd /path/to/repo/relay &amp;&amp; . ./.env.sh &amp;&amp; exec /opt/homebrew/bin/node server.js</string>
+    <string>cd /path/to/repo/relay &amp;&amp; set -a &amp;&amp; . ./.env &amp;&amp; set +a &amp;&amp; exec /opt/homebrew/bin/node server.js</string>
   </array>
   <key>RunAtLoad</key><true/>
   <key>KeepAlive</key><true/>
@@ -567,7 +642,117 @@ sleeping when the display is off" (on power adapter), or a second agent `com.exa
 the same layout whose `ProgramArguments` are `/usr/bin/caffeinate` `-s` (`-s` keeps it awake only on AC power).
 
 **Undo:** `launchctl unload -w ~/Library/LaunchAgents/com.example.glasshome.relay.plist` (and the caffeinate one), delete
-the plist files, `relay/.env.sh`, `relay/.secrets/`, `relay/certs/` and `relay/logs/`.
+the plist files, `relay/.env`, `relay/.secrets/`, `relay/certs/`, `relay/logs/` and `relay/data/` (saved chats).
+
+## Yo-Yo chat, hold-to-talk and languages (v6)
+
+- **Chat tab:** your messages on the right, Yo-Yo on the left (glass bubbles), a text box and a big mic. Each answer shows
+  what really happened: a "Playing …" / "Opened …" / "Couldn't …" chip, title chips with scores, a speaker button to hear it
+  again and a faint **stats line** (total time, model, tokens; tap **Stats** for today's totals).
+- **Saved chats:** every chat is a JSON file in `relay/data/chats/<id>.json` on the relay computer (folder 700, files 600,
+  git-ignored; move it with `CHATS_DIR`). ☰ opens the list (open, ✎ rename, 🗑 twice to delete), **+** starts a fresh chat
+  (nothing is saved until the first question), the first question becomes the title.
+- **Multi-turn memory:** follow-ups like "and the second one?" work. The model gets a short rolling summary of older turns
+  plus the last 8 turns (`LLM_MEMORY_TURNS`), so long chats stay cheap. Yo-Yo answers general questions too (cooking,
+  travel, how things work); TV actions are tools it uses when you ask.
+- **Hold-to-talk:** hold the mic while you speak, release to send, slide off to cancel. The phone records with
+  `MediaRecorder` (Safari: `audio/mp4`) and uploads the clip to `POST /stt`. This replaced Safari's
+  `webkitSpeechRecognition`, which often aborted after the first press in a Home Screen web app. It needs the
+  [HTTPS page](#https-for-the-iphone-mic-optional); on plain http (or if `/stt` fails) the phone falls back to Safari's speech recognition.
+- **Speech-to-text engines** (`STT`, default `auto`): **Gemini** (the default for most setups; it reuses `GEMINI_API_KEY`
+  and counts toward the same daily caps, about 1 request per clip) or **local whisper.cpp** (free, offline, private):
+  ```sh
+  bash relay/tools/install-whisper.sh     # installs only into ~/.glasshome/ (no sudo); needs Xcode Command Line Tools
+  ```
+  With `auto`, whisper.cpp is used when installed, else Gemini. Clips are limited to `STT_MAX_SEC` (30 s); transcripts
+  are never written to the logs. Undo: `rm -rf ~/.glasshome/whisper.cpp ~/.glasshome/cmake`.
+- **English / हिन्दी / Hinglish:** the toggle sets the recognition language, the reply language and the iPhone voice.
+- **Spoken replies:** on by default; the phone reads a short version (first 2 sentences) in the iPhone's own (free) voice.
+  Holding the mic stops it.
+
+## Wake-on-LAN (v6)
+
+1. On the TV turn on Settings → General → Network → Expert Settings → **Power On with Mobile** (without it the TV ignores the packet).
+2. Set `TV_MAC=aa:bb:cc:dd:ee:ff` in `relay/.env` (TV Settings → Support → About This TV shows the MAC of the
+   Wi-Fi or Ethernet adapter in use). Or leave it empty: the relay learns the MAC from the TV the first time it sees it on
+   and saves it in `relay/data/tv.json` (git-ignored).
+3. The phone's **power** button sends `KEY_POWER` when the TV is on, and the magic packet when it's off (broadcast + the
+   TV's IP, ports 9 and 7, 3 rounds). The relay then polls quickly and the launcher opens by itself once the TV is up.
+   "Play … on Netflix" while the TV is off wakes it first.
+
+Wi-Fi TVs may not wake from deep standby after a long time off; Ethernet is more reliable.
+
+## Play X on &lt;service&gt; (v6)
+
+Ask "play Breaking Bad on Netflix", "open Severance on Apple TV", "put Dune on HBO Max" or "play The Office on some
+streaming service". Every answer says what actually happened.
+
+| Service | What happens |
+|---|---|
+| **Netflix** | **Plays the title** via a DIAL deep link (TMDB → Wikidata's Netflix id → `netflix.com/watch/<id>`). If Netflix starts cold on "Who's watching?", the relay presses OK on the highlighted profile and sends the link again. **Best effort**: it needs the paired remote and may stop at the profile picker. No Netflix id → opens Netflix. |
+| **YouTube** | **Opens the YouTube app only.** A specific video can't be started from outside the app (the TV rejects third-party DIAL video links and deep links only open YouTube's home). Cast from the YouTube app on your phone instead. `YT_MODE=dial` is the default; the key-press search mode (`YT_MODE=search`) is **experimental, unreliable and off by default**. |
+| **Prime Video, Disney+, Hulu, HBO Max, Apple TV, Peacock** | **Opens the app**; the answer tells you to pick the title there. |
+| **"some / any service"** | Picks a service you can watch it on (TMDB US subscription providers), Netflix first because it can play. |
+
+Apps are launched over the TV's local REST API, `POST http://TV_IP:8001/api/v2/applications/<id>`, with **numeric Samsung
+app ids** (`storeIds` in `js/apps.js`, snapshot in `relay/dock-apps.json`) and an **8 s timeout** (slow TVs take a few
+seconds to start an app). No pairing is needed to launch; key presses (Netflix profile OK) need the paired remote.
+
+| App | Samsung app id | | App | Samsung app id |
+|---|---|---|---|---|
+| YouTube | `111299001912` | | HBO Max | `3202301029760` |
+| Netflix | `3201907018807` | | Apple TV | `3201807016597` |
+| Prime Video | `3201910019365` | | Peacock | `3202006020991` |
+| Disney+ | `3201901017640` | | Spotify | `3201606009684` (not in the default dock) |
+| Hulu | `3201601007625` | | | |
+
+Ids can differ by region/firmware: `curl http://TV_IP:8001/api/v2/applications/<id>` returns JSON when the app is installed.
+Details and every `YT_*` / `NETFLIX_*` setting: [`relay/README.md`](relay/README.md#v6-play-x-on-y).
+
+## Yo-Yo reply card and Show on TV (v6.2)
+
+- **Reply card:** a question asked on the phone appears in a small glass card at the bottom right of the TV with the
+  question, the answer and a state orb (listening, thinking with the current step, answering, done, error).
+  - It shows **only while the launcher is the foreground app**; a hidden or suspended launcher ignores the events.
+  - It **never steals focus**: arrows and OK keep driving Home. **Back** closes it, **Play/Pause** opens the full Yo-Yo overlay.
+  - It **fades by itself** about 8 s after the answer (up to 20 s for long answers, 6 s for errors).
+  - Disable it with `voice: { enabled: true, relay: '…', card: false }` in `js/config.js` (rebuild), or `?vcard=0` in the URL.
+- **Show on TV:** answers of **250+ characters** get a **Show on TV** button on the phone. **Two taps:** the first arms it
+  and warns that the TV will switch to Home; the second sends `POST /tv/show`. The relay brings the launcher to the front
+  over REST (no blind key presses) and pushes the answer; the TV shows a centred, **scrollable glass panel**
+  (**Up/Down** scroll, **Back** closes). **OK** = "Back to &lt;app&gt;": the launcher calls `POST /tv/back` and the relay
+  relaunches the app that was on screen (when it saw one).
+  - The launcher acknowledges with `POST /tv/shown`; a show that arrives while Home is still starting is fetched with
+    `GET /tv/pending` (pending shows expire).
+- **Limit:** a Tizen web app can't overlay other apps, so the card can't appear over Netflix or YouTube. Show on TV is the
+  way to get a long answer onto the screen from inside another app.
+
+## Relay endpoints
+
+The relay listens on `http://YOUR-MAC-IP:8787` (and `https://…:8788` with certificates). It has no authentication: keep
+it on your home network. Full details: [`relay/README.md`](relay/README.md#endpoints).
+
+| Method and path | What it does |
+|---|---|
+| `GET /` | Phone page (Remote, Yo-Yo chat, Home tabs) |
+| `GET /events` | SSE stream for the TV launcher (steps, answers, card, Show on TV) |
+| `GET /status`, `GET /stats`, `GET /last` | Status (brain chain, budget, keys present but never their values), timing stats, last answer |
+| `POST /ask {text, client?, lang?, chatId?, newChat?}` | Ask Yo-Yo; returns the answer, a short `spoken` version and `stats` |
+| `GET /chats`, `POST /chats` | v6: list saved chats / create one |
+| `GET /chats/:id`, `POST /chats/:id/rename {title}`, `POST /chats/:id/delete` | v6: open, rename, delete a chat |
+| `POST /chat/reset {client}` | Legacy (v5 phones): forget this phone's conversation |
+| `GET /stt`, `POST /stt?lang=&sec=` | v6: speech-to-text status / transcribe a recording (`audio/mp4`, webm, ogg, wav) |
+| `POST /transcript`, `POST /listening` | Interim speech and mic state (shown on the TV) |
+| `GET /remote/status`, `GET /remote/apps` | TV state (pairing, power, model, last launch) and dock app shortcuts |
+| `POST /remote/key {key}`, `POST /remote/launch {app}` | Send a whitelisted remote key / launch a dock app or the launcher |
+| `POST /remote/power` | `KEY_POWER` when on, Wake-on-LAN when off (`409 no-mac` without a MAC) |
+| `POST /remote/pair`, `POST /remote/launcher {action}` | Pair the remote with the TV / launcher actions (`yoyo`, `stats`, `close`) |
+| `POST /tv/show {chatId, messageId \| index}` | v6.2: bring the launcher forward and show a long answer (`409 tv-off`) |
+| `POST /tv/shown {id}`, `GET /tv/pending` | v6.2, launcher only: acknowledge a show / fetch one missed while starting |
+| `POST /tv/back {id}` | v6.2, launcher only: relaunch the app that was playing before the show |
+| `GET /ca.crt` | The local CA certificate for the iPhone (only if `relay/certs/ca.crt` exists) |
+
+`/remote/*` and `/tv/*` refuse CORS preflights and are rate-limited per IP, so web pages on other sites can't drive the TV.
 
 ## Trying it on your computer first
 
@@ -578,9 +763,32 @@ fake data), `?blur=baked|live|off`, `?discover=0`, `?wp=off`, `?idle=0`, `?dock=
 Developer scripts in `tools/` (`test-nav.js`, `test-v5.js`, `test-voice.js`, `test-phone.js`, `preview-*.js`, `screenshot.js`,
 `fetch-weekly.js`, …) need Node.js, `npm install playwright-core` (or `PLAYWRIGHT_CORE=/path/to/node_modules/playwright-core`)
 and Google Chrome (set `CHROME=/path/to/chrome` if it's not at `/usr/bin/google-chrome`). Extra URL options:
-`?tod=day|night`, `?inputs=mock`, `?relay=http://YOUR-MAC-IP:8787`. Relay tests need only Node:
-`for t in relay/test/*.test.js; do node "$t"; done`.
+`?tod=day|night`, `?inputs=mock`, `?relay=http://YOUR-MAC-IP:8787`, `?vcard=0`.
 `node tools/fetch-weekly.js` refreshes the offline IMDb snapshot (picks older than 21 days are hidden).
+
+### Tests
+
+All tests are offline: no keys, no TV, no network (fake TV, fake TMDB/Gemini/whisper servers).
+
+```sh
+bash relay/test/run-all.sh        # every relay test (parser, chats, metrics, budget, llm, llm-multiturn, tv-remote,
+                                  # tv-power, wol, play, stt, tv-show) with API keys stripped and temp data/log dirs
+node tools/test-phone.js          # phone page at iPhone size: chat, saved chats, hold-to-talk (fake MediaRecorder), Show on TV
+node tools/test-tvcard.js         # v6.2 corner card + Show on TV panel on the TV
+node tools/test-voice.js; node tools/test-nav.js; node tools/test-v5.js    # TV overlay, focus/navigation, v5 features
+node tools/preview-v62.js         # regenerate the v6.2 screenshots
+```
+
+**On macOS:** `run-all.sh` uses GNU `timeout` when it's there; macOS doesn't ship it, so the script then runs without the
+per-test time limit. If that gives you trouble, either `brew install coreutils` (provides `gtimeout`, which the script
+also picks up) or run the test files with node directly:
+
+```sh
+cd relay && for t in test/*.test.js; do node "$t" || break; done
+```
+
+Run the tests **without** your `relay/.env` loaded so no real key or TV address leaks into them. The `tools/test-*.js`
+browser tests need playwright-core + Chrome (see above).
 
 ## Troubleshooting
 
@@ -599,6 +807,13 @@ and Google Chrome (set `CHROME=/path/to/chrome` if it's not at `/usr/bin/google-
 | **Answers are basic / say "daily AI limit reached"** | No AI key, a provider error, or the daily cap. Check `GET /status` (brain chain, budget). Delete `relay/logs/llm-budget.json` only if you understand why a billing stop happened. |
 | **Remote tab: "Look at your TV" never resolves** | See pairing in Step D (Access Notification "First Time Only", same subnet, Device List). `GET /remote/status` shows the state. |
 | **No Inputs row** | The TV reported no inputs, or the build lacks the `tv.window` privilege (reinstall the v5 build; you may need to re-sign). |
+| **Phone: Show on TV does nothing / "TV is off"** | The relay needs `TV_IP` and the TV on. The first tap only arms the button (two taps by design). `GET /remote/status` must show `power: on`. If Home doesn't come forward, check `LAUNCHER_APP_ID` matches your app ID. |
+| **No reply card on the TV** | It only shows while Glass Home is on screen (never over other apps), and not with `card: false` / `?vcard=0`. Check the launcher's `voice.relay`. |
+| **Hold-to-talk: "Didn't catch that" / no transcript** | Use the HTTPS page (`https://YOUR-MAC-IP:8788/`). `GET /stt` shows the engine: `off` means no Gemini key and no whisper.cpp; install whisper.cpp or set `GEMINI_API_KEY`. Over the daily cap, `/stt` answers 429. |
+| **Power button / Wake-on-LAN doesn't turn the TV on** | Turn on **Power On with Mobile** (Settings → General → Network → Expert Settings), set `TV_MAC` (or turn the TV on once with its remote so the relay learns it), and keep the TV and relay on the same subnet. Wi-Fi TVs may not wake after long deep standby; Ethernet is more reliable. |
+| **"Play X on Netflix" stops at "Who's watching?"** | The profile step needs the paired remote (Remote tab → Pair). It presses OK on the highlighted profile; if that's not yours, pick your profile on the TV and ask again (while Netflix is running the relay skips the profile step). Tune `NETFLIX_PROFILE_WAIT_MS` on slow TVs. |
+| **"Play X on YouTube" only opens YouTube** | Expected: a specific video can't be started from outside the YouTube app. Cast from the YouTube app on your phone. |
+| **An app doesn't open from the phone ("couldn't open")** | The numeric app id may differ on your TV: `curl http://<TV_IP>:8001/api/v2/applications/<id>`; fix `storeIds` in `js/apps.js` (or `relay/dock-apps.json`). Launches time out after 8 s. |
 | **Debugging** | Set `debug: true` in `js/config.js`, rebuild, and use `sdb shell 0 debug GlassHome1.launcher` to get a Web Inspector port. |
 
 ## Uninstall / undo everything
@@ -613,8 +828,8 @@ Then, to put the TV back to normal:
 - Turn **Developer Mode off**: Apps panel → type `1 2 3 4 5` → Developer mode **Off** → restart the TV (hold power).
 - Optionally turn **Autorun Last App** back off.
 - Relay (if you used it): unload the launchd agents (Step E), remove the iPhone CA profile, remove "Glass Home Remote" from
-  the TV's Device Connection Manager → Device List, delete `relay/.secrets/`, `relay/certs/`, `relay/logs/` and `relay/.env.sh`,
-  and revoke any AI keys you created.
+  the TV's Device Connection Manager → Device List, delete `relay/.secrets/`, `relay/certs/`, `relay/logs/`, `relay/data/`
+  (saved chats, learned TV MAC) and `relay/.env`, remove `~/.glasshome/` if you installed whisper.cpp, and revoke any AI keys you created.
 - On your computer: delete `dist/`, `.secrets/` and any `.wgt`; revoke the Trakt app at <https://trakt.tv/oauth/authorized_applications>
   and remove the Tizen Studio folder if you no longer need it.
 
@@ -656,7 +871,12 @@ you open each app from Glass Home (`discover.platforms`, `platformsByUsage`; You
 | `js/wallpaper.js`, `js/wallpapers.js` | Wallpaper rotator + "baked glass", wallpaper list/credits |
 | `js/daynight.js`, `js/inputs.js`, `js/saver.js` | v5 day/night, inputs + Settings row, picks screensaver |
 | `js/voice.js` | v4 Yo-Yo overlay (SSE client of the relay; hidden when `voice.relay` is empty) |
-| `relay/` | v4 Node relay (zero dependencies): `server.js`, `phone.html` (iPhone page), brains, tools, TV remote/power, `evals/`, `test/` — see `relay/README.md` |
+| `js/tvcard.js` | v6.2 Yo-Yo corner card + Show on TV panel |
+| `relay/` | Node relay (zero dependencies): `server.js`, `phone.html` (iPhone page), brains, tools, TV remote/power, `evals/`, `test/` — see `relay/README.md` |
+| `relay/chats.js`, `relay/stt.js`, `relay/play.js`, `relay/yt-search.js`, `relay/tv-show.js` | v6/v6.2: saved chats, speech-to-text, Play X on &lt;service&gt; (+ experimental YouTube search), Show on TV |
+| `relay/.env.example` | Settings template (copy to `relay/.env`, which is git-ignored) |
+| `relay/tools/install-whisper.sh`, `relay/tools/make-certs.sh`, `relay/tools/yt-search-probe.js` | Optional whisper.cpp install, local HTTPS certificates, YouTube search tuning |
+| `relay/data/` (git-ignored, created at run time) | Saved chats (`chats/`), learned TV MAC (`tv.json`), recent plays |
 | `mockups/voice/` | Design mockups for the Yo-Yo overlay |
 | `js/tizen-shim.js` | Lets the app run in a desktop browser for previews |
 | `data/weekly.json`, `data/weekly.embed.js` | Dated snapshot of IMDb's public Most Popular charts (offline picks) |
@@ -665,8 +885,26 @@ you open each app from Glass Home (`discover.platforms`, `platformsByUsage`; You
 | `tools/trakt-link.sh` | One-time Trakt sign-in (PKCE) |
 | `tools/build-wallpapers.py`, `tools/wallpapers.json` | Rebuild wallpapers from Wikimedia Commons |
 | `tools/fetch-weekly.js` | Refresh the IMDb snapshot |
-| `tools/test-*.js`, `tools/preview-v2.js`, `tools/preview-v3.js`, `tools/screenshot.js` | Headless tests and screenshots (Playwright + Chrome) |
+| `tools/test-*.js`, `tools/preview-v2.js`, `tools/preview-v3.js`, `tools/preview-v62.js`, `tools/screenshot.js` | Headless tests and screenshots (Playwright + Chrome) |
 | `docs/` | README screenshots (JPEG) |
+
+## Changelog
+
+- **v6.2** — Yo-Yo reply corner card on the TV (only while the launcher is in front, never takes focus, fades by itself;
+  `voice.card=false` or `?vcard=0` to disable). **Show on TV** for long answers (250+ chars, two-tap confirm): `POST /tv/show`
+  brings the launcher forward with a scrollable panel, `POST /tv/back` returns to the previous app, plus `/tv/shown` and
+  `/tv/pending`. New `js/tvcard.js`, `relay/tv-show.js`, tests `tools/test-tvcard.js`, `relay/test/tv-show.test.js`.
+- **v6.1** — Netflix profile-picker handling (best effort). App launches by numeric Samsung app ids over REST (:8001) with an
+  8 s timeout. YouTube described honestly (opens the app; `YT_MODE=dial` default, key-press search experimental and off by default).
+  `run-all.sh` works without GNU `timeout`. `relay/.env.example`.
+- **v6** — ChatGPT-style Yo-Yo chat on the phone with chats saved on the relay host (`relay/data/chats`, git-ignored) and
+  multi-turn memory (summary + last 8 turns). Hold-to-talk via `MediaRecorder` → `POST /stt` (Gemini default, optional
+  local whisper.cpp via `relay/tools/install-whisper.sh`), replacing `webkitSpeechRecognition`. English/Hindi/Hinglish,
+  spoken replies, stats line. Wake-on-LAN with a learned or configured MAC. "Play X on &lt;service&gt;" (Netflix via DIAL,
+  other apps open). `relay/tools/make-certs.sh` for the HTTPS page.
+- **v5** — Day/night looks, HDMI inputs + Settings row, picks screensaver.
+- **v4** — Yo-Yo voice assistant (relay, brains, TV overlay), iPhone remote, Trakt "Up next", auto-open on power-on.
+- **v2/v3** — Liquid-glass layout, Discover by streaming service.
 
 ## Credits & licenses
 

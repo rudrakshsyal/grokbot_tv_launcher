@@ -1,0 +1,27 @@
+'use strict';
+// chats.js: persisted chats (files under CHATS_DIR, mode 600, atomic writes), titles, list order, rename, delete, bad ids.
+const fs = require('fs'), os = require('os'), path = require('path'), assert = require('assert');
+let pass = 0; const ok = (c, m) => { assert.ok(c, m); pass++; console.log('  ok  ' + m); };
+const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'chats-')); process.env.CHATS_DIR = path.join(dir, 'chats');
+const CH = require('../chats');
+const a = CH.create({ client: 'phone-1' });
+ok(CH.validId(a.id) && a.title === 'New chat' && fs.existsSync(path.join(dir, 'chats', a.id + '.json')), 'create -> file in CHATS_DIR');
+ok((fs.statSync(path.join(dir, 'chats', a.id + '.json')).mode & 0o777) === 0o600 && (fs.statSync(path.join(dir, 'chats')).mode & 0o777) === 0o700, 'chat file 600, folder 700');
+CH.addMessage(a, { role: 'user', text: 'hey, what should I cook tonight with chicken and rice', lang: 'en-US' });
+ok(a.title === 'What should I cook tonight with…', 'auto title from the first message: ' + a.title);
+CH.addMessage(a, { role: 'assistant', text: 'Try a quick chicken fried rice.', brain: 'gemini', played: { status: 'playing' } });
+const t = [{ role: 'user', content: 'x' }, { role: 'assistant', content: 'y' }]; t.answer = 'y'; a.turns.push(t); CH.save(a);
+CH.cache.clear();
+const b = CH.get(a.id);
+ok(b.messages.length === 2 && b.messages[1].played.status === 'playing' && b.turns[0].answer === 'y' && b.turns[0].length === 2, 'reload from disk keeps messages, played and model turns (+ .answer)');
+ok(CH.rename(a.id, '  Dinner   ideas ').title === 'Dinner ideas' && CH.get(a.id).autoTitle === false, 'rename trims + stops auto titles');
+CH.addMessage(b, { role: 'user', text: 'something else' }); ok(CH.get(a.id).title === 'Dinner ideas', 'later messages keep the title');
+const c = CH.create(); CH.addMessage(c, { role: 'user', text: 'second' });
+ok(CH.list().map(x => x.id).join() === [c.id, a.id].join() && CH.list()[0].preview === 'second', 'list newest first with previews');
+ok(CH.get('../etc/passwd') === null && CH.get('c123') === null && CH.remove('../x') === false && CH.rename('nope', 'x') === null, 'bad ids rejected (no path traversal)');
+ok(CH.open('cdoesnotexist1', {}).id !== 'cdoesnotexist1', 'open(unknown id) -> a new chat');
+ok(CH.remove(a.id) === true && CH.get(a.id) === null && !fs.existsSync(path.join(dir, 'chats', a.id + '.json')), 'delete removes the file');
+fs.writeFileSync(path.join(dir, 'chats', 'cbrokenjson123.json'), '{oops'); ok(CH.get('cbrokenjson123') === null && CH.list().every(x => x.id !== 'cbrokenjson123'), 'corrupt file ignored');
+ok(fs.readdirSync(path.join(dir, 'chats')).every(f => !/\.tmp$/.test(f)), 'no temp files left (atomic rename)');
+fs.rmSync(dir, { recursive: true, force: true });
+console.log('chats: ' + pass + ' passed');

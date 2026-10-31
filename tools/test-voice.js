@@ -1,6 +1,8 @@
 // Voice overlay tests (headless Chrome). Relay runs in-process in MOCK mode. usage: node tools/test-voice.js [root]
 const path = require('path'), http = require('http'), assert = require('assert');
 let pw; try { pw = require('playwright-core'); } catch (e) { pw = require(process.env.PLAYWRIGHT_CORE || 'playwright-core'); }
+{ const os = require('os'), fs = require('fs'), tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'rh-voice-'));   // never write test chats into relay/data
+  for (const k of ['DATA_DIR', 'CHATS_DIR', 'METRICS_DIR', 'LOG_DIR']) process.env[k] = path.join(tmp, k.toLowerCase()); }
 process.env.MOCK = '1'; process.env.MOCK_SLOW = '1'; process.env.LOG = '0';
 const relay = require('../relay/server');
 const root = path.resolve(process.argv[2] || path.join(__dirname, '..'));
@@ -41,7 +43,8 @@ relay.server.listen(0, '127.0.0.1', async () => {
     await p.waitForTimeout(200); const b = await p.evaluate(() => RH_Voice.open);
     assert.ok(a === true && b === false, 'open=' + a + ' then ' + b);
   });
-  await t('relay events open the overlay and fill the timeline', async () => {
+  await t('relay events fill the open overlay timeline (v6.2: phone questions alone show the corner card, tools/test-tvcard.js)', async () => {
+    await p.keyboard.press('v'); await p.waitForTimeout(300);
     await ask();
     await p.waitForFunction(() => RH_Voice.state === 'done', null, { timeout: 15000 });
     const st = await p.evaluate(() => RH_Voice.steps().map(s => s.state));
