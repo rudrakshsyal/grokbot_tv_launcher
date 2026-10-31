@@ -65,7 +65,7 @@ class TvRemote extends EventEmitter {
     this.allowTimeout = o.allowTimeout || 45000;    // how long we keep the Allow prompt open
     this.keepAliveMs = o.keepAliveMs || 10 * 60000; // reconnect after drops only while used recently
     this.pingMs = o.pingMs || 20000;
-    this.restTimeout = o.restTimeout || 3000;
+    this.restTimeout = o.restTimeout || 8000;
     this.backoff = o.backoff || [1000, 2000, 4000, 8000, 15000, 30000];
     this.autoPair = o.autoPair !== false;   // the first key press may start pairing once; after that only pair()
     // states: idle | connecting | connected | offline | unpaired | pairing | pair-timeout | denied
@@ -186,6 +186,7 @@ class TvRemote extends EventEmitter {
         else return;
         let msg; try { msg = JSON.parse(text); } catch (e) { return; }
         this.emit('message', msg);
+        if (/^ms\.remote\.ime/.test(msg.event || '')) this.emit('ime', msg.event, msg.data);   // system keyboard up/down (v6.1)
         if (msg.event === 'ms.channel.connect') {
           gotConnect = true; clearTimeout(allowT);
           if (msg.data && msg.data.token && msg.data.token !== this.token) this.saveToken(msg.data.token);
@@ -235,6 +236,23 @@ class TvRemote extends EventEmitter {
     this.sendJSON({ method: 'ms.channel.emit', params: { event: 'ed.apps.launch', to: 'host', data: { appId, action_type: 'DEEP_LINK', metaTag: '' } } });
     return { via: 'websocket', appId, rest: rest.error || rest.status };
   }
+  // ed.apps.launch with a deep link (SmartView API). Honored by some apps/firmware, ignored by others (then it is a plain
+  // launch), so callers verify with appStatus and say what really happened.
+  async deepLink(appId, metaTag) {
+    if (!APP_ID.test(appId || '')) throw Object.assign(new Error('bad app id'), { code: 'bad-app' });
+    this.lastUse = Date.now();
+    await this.ready();
+    this.sendJSON({ method: 'ms.channel.emit', params: { event: 'ed.apps.launch', to: 'host', data: { appId, action_type: 'DEEP_LINK', metaTag: String(metaTag || '') } } });
+    return { via: 'websocket-deeplink', appId };
+  }
+  // Text into the TV's system keyboard (samsungtvws format): only works while the TV reports ms.remote.imeStart.
+  // Apps with their own keyboard (YouTube, Netflix) ignore it.
+  async inputString(text) {
+    await this.ready(); this.lastUse = Date.now();
+    if (!this.textNoted) { this.textNoted = true; try { this.sendJSON({ method: 'ms.channel.emit', params: { event: 'custom.remote.textReceived', to: 'broadcast', data: '' } }); } catch (e) {} }
+    this.sendJSON({ method: 'ms.remote.control', params: { Cmd: Buffer.from(String(text), 'utf8').toString('base64'), DataOfCmd: 'base64', TypeOfRemote: 'SendInputString' } });
+  }
+  async inputEnd() { await this.ready(); this.sendJSON({ method: 'ms.remote.control', params: { TypeOfRemote: 'SendInputEnd' } }); }
   restGet(p, timeout) {
     if (!this.host) return Promise.reject(this.err('no-host', 'TV_IP not set'));
     return new Promise((res, rej) => {
@@ -256,26 +274,55 @@ class TvRemote extends EventEmitter {
       r.on('timeout', () => r.destroy(new Error('REST timeout'))); r.on('error', rej); r.end();
     });
   }
-  // Wake-on-LAN magic packet: 6x 0xFF + 16x MAC, UDP broadcast to port 9 (and 7). The TV must have
-  // Settings › General › Network › Expert Settings › Power On with Mobile enabled.
+  // Wake-on-LAN magic packet: 6x 0xFF + 16x MAC over UDP to ports 9 and 7. v6: sent to every target (limited broadcast,
+  // the TV subnet's directed broadcast, the TV's own IP) `repeats` times `gapMs` apart, because one UDP packet over
+  // Wi-Fi is easily lost. The TV must have Settings › General › Network › Expert Settings › Power On with Mobile on.
+  wakeTargets(extra) {
+    const out = [];
+    [].concat(extra || [], '255.255.255.255', subnetBroadcast(this.host), this.host).forEach(a => { if (a && net.isIPv4(a) && out.indexOf(a) < 0) out.push(a); });
+    return out;
+  }
   wake(opts) {
     opts = opts || {};
     const mac = normMac(this.mac);
     if (!mac) return Promise.reject(Object.assign(new Error('TV_MAC not set'), { code: 'no-mac' }));
-    const pkt = magicPacket(mac);
+    const pkt = magicPacket(mac), ports = opts.ports || [9, 7];
+    const addrs = opts.addresses || (opts.address ? [opts.address] : this.wakeTargets());
+    const repeats = Math.max(1, opts.repeats || 1), gap = opts.gapMs == null ? 300 : opts.gapMs;
     return new Promise((res, rej) => {
       const s = dgram.createSocket('udp4');
-      s.on('error', e => { try { s.close(); } catch (x) {} rej(e); });
+      let sent = 0, failed = 0, lastErr = null, done = false;
+      const total = addrs.length * ports.length * repeats;
+      const fin = () => { if (done) return; done = true; try { s.close(); } catch (x) {} if (!sent) rej(lastErr || new Error('WoL send failed')); else res({ sent, failed, mac, addresses: addrs, repeats }); };
+      s.on('error', e => { lastErr = e; fin(); });
       s.bind(() => {
         try { s.setBroadcast(true); } catch (e) {}
-        const addr = opts.address || '255.255.255.255', ports = opts.ports || [9, 7];
-        let n = 0; ports.forEach(p => s.send(pkt, p, addr, err => { if (++n === ports.length) { try { s.close(); } catch (x) {} err ? rej(err) : res({ sent: ports.length, mac }); } }));
+        const round = i => {
+          addrs.forEach(addr => ports.forEach(p => s.send(pkt, p, addr, err => {
+            if (err) { failed++; lastErr = err; } else sent++;
+            if (sent + failed === total) fin();
+          })));
+          if (i + 1 < repeats) setTimeout(() => round(i + 1), gap);
+        };
+        round(0);
       });
     });
   }
   close() { this.closed = true; clearTimeout(this.retryT); this.teardown(); this.flush(Object.assign(new Error('closed'), { code: 'closed' })); }
 }
+// directed broadcast of the local interface on the same subnet as `host` (e.g. 192.168.1.255 for a /24); null if none
+function subnetBroadcast(host) {
+  if (!net.isIPv4(host || '')) return null;
+  const toN = a => a.split('.').reduce((n, x) => (n * 256) + (+x), 0) >>> 0, toA = n => [24, 16, 8, 0].map(b => (n >>> b) & 255).join('.');
+  const h = toN(host), ifs = require('os').networkInterfaces();
+  for (const k of Object.keys(ifs)) for (const i of ifs[k] || []) {
+    if (i.internal || (i.family !== 'IPv4' && i.family !== 4) || !i.netmask) continue;
+    const m = toN(i.netmask), ip = toN(i.address);
+    if (m && ((ip & m) >>> 0) === ((h & m) >>> 0)) return toA(((ip & m) | (~m >>> 0)) >>> 0);
+  }
+  return null;
+}
 function normMac(m) { const h = String(m || '').replace(/[^0-9a-f]/gi, ''); return h.length === 12 ? h.toLowerCase().match(/../g).join(':') : null; }
 function magicPacket(mac) { const b = Buffer.from(mac.replace(/:/g, ''), 'hex'), out = Buffer.alloc(102, 0xff); for (let i = 0; i < 16; i++) b.copy(out, 6 + i * 6); return out; }
 
-module.exports = { TvRemote, KEYS, APP_ID, encodeFrame, decodeFrames, magicPacket, normMac };
+module.exports = { TvRemote, KEYS, APP_ID, encodeFrame, decodeFrames, magicPacket, normMac, subnetBroadcast };

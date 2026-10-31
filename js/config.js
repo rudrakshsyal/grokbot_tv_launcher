@@ -172,7 +172,9 @@ window.RH_CONFIG = {
   /* Voice assistant (js/voice.js): the relay runs on your Mac (relay/README.md). Set relay to your Mac's address, e.g.
    * 'http://YOUR-MAC-IP:8787' (give the Mac a DHCP reservation so it never changes). Empty, or not reachable -> the feature
    * stays completely hidden. Play/Pause on the remote opens the overlay; the phone page is the microphone. */
-  voice: { enabled: true, relay: '' },
+  /* card (v6.2): questions asked from the phone show in a small corner card while the launcher is on screen (never takes
+   * focus, fades out by itself). false (or ?vcard=0 in the URL) = the v6.1 behaviour: the full overlay opens instead. */
+  voice: { enabled: true, relay: '', card: true },
 
   /* Optional overrides of app IDs without editing apps.js, e.g.
    * { peacock: ['abcDEF1234.Peacock'] } — tried first. */

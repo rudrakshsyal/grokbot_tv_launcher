@@ -14,7 +14,7 @@ const fake = http.createServer((req, res) => {
 });
 fake.listen(0, '127.0.0.1', async () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'budget-'));
-  const env = { METRICS_DIR: dir, METRICS: '0', LLM_BASE_URL: 'http://127.0.0.1:' + fake.address().port + '/v1/', LLM_API_KEY: 'test', LLM_MODEL: 'fake-model', OLLAMA_FALLBACK: '0', LOG: '0', LLM_MAX_REQUESTS_PER_DAY: '3' };
+  const env = { METRICS_DIR: dir, DATA_DIR: dir, CHATS_DIR: path.join(dir, 'chats'), METRICS: '0', LLM_BASE_URL: 'http://127.0.0.1:' + fake.address().port + '/v1/', LLM_API_KEY: 'test', LLM_MODEL: 'fake-model', OLLAMA_FALLBACK: '0', LOG: '0', LLM_MAX_REQUESTS_PER_DAY: '3' };
   Object.assign(process.env, env);
   const { ask } = require('../server'), LLM = require('../brain-llm');
   let pass = 0; const ok = (n, fn) => { fn(); pass++; console.log('PASS', n); };

@@ -3,7 +3,9 @@
 const { parse, describe, fmtRun } = require('./parser');
 const T = require('./tools'), M = require('./metrics');
 const { PLATFORMS } = require('./catalog');
-const HELP = 'I can help with shows, movies, ratings, weather and opening apps.';
+const HELP = 'I can help with shows, movies, ratings, weather, opening apps and playing things on the TV.';
+let PLAY = null;   // set by server.js
+function setPlayer(fn) { PLAY = fn; }
 
 function list(names) { return names.length < 2 ? names.join('') : names.slice(0, -1).join(', ') + ' and ' + names[names.length - 1]; }
 function score(i) { return [i.imdb ? 'IMDb ' + i.imdb : null, i.rt != null ? i.rt + '% on Rotten Tomatoes' : null].filter(Boolean).join(' and '); }
@@ -18,6 +20,11 @@ async function run(text, ctx) {
   const p = parse(text);
   await ctx.step('Understood', async () => describe(p));
   if (p.intent === 'unknown') return { text: HELP, items: [] };
+  if (p.intent === 'play') {
+    if (!PLAY) return { text: 'Playing on the TV isn\'t set up on the relay.', items: [] };
+    const a = { query: p.query, service: p.service, kind: p.playKind, different: p.different }, r = await M.timeTool(ctx, 'play_on_tv', a, () => PLAY(a, ctx));
+    return { text: (r && r.say) || 'Done.', items: [], played: r };
+  }
   if (p.intent === 'weather') {
     const w = await M.timeTool(ctx, 'get_weather', { day: p.day }, () => T.getWeather({ day: p.day }, ctx));
     if (p.day === 'week') return { text: 'This week in ' + w.place + ': highs from ' + Math.min.apply(null, w.week.map(d => d.high)) + ' to ' + Math.max.apply(null, w.week.map(d => d.high)) + ' degrees, ' + w.week.filter(d => d.rain >= 40).length + ' days likely to rain.', items: [], weather: w };
@@ -43,4 +50,4 @@ async function run(text, ctx) {
     (p.maxRun ? ' under ' + fmtRun(p.maxRun) : '') + (p.platform ? ' on ' + PLATFORMS[p.platform].name : '') + '.';
   return { text: lead + ' Top pick: ' + top.title + (top.year ? ' (' + top.year + ')' : '') + (top.imdb ? ', IMDb ' + top.imdb : '') + (top.platformName && !p.platform ? ', on ' + top.platformName : '') + '.', items: r.items };
 }
-module.exports = { run, HELP };
+module.exports = { run, HELP, setPlayer };

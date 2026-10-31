@@ -20,7 +20,12 @@ const cases = [
   ['best sci-fi shows on Apple TV', { intent: 'recommend', genres: ['sci-fi'], kind: 'tv', platform: 'appletv', sort: 'top_rated' }],
   ['romantic movie under an hour and a half', { intent: 'recommend', genres: ['romance'], maxRun: 90 }],
   ['what is the capital of France', { intent: 'unknown' }],
-  ['tell me a joke', { intent: 'unknown' }]
+  ['tell me a joke', { intent: 'unknown' }],
+  ['play some other RÜFÜS DU SOL song on youtube', { intent: 'play', service: 'youtube', playKind: 'music', different: true }],
+  ['play Breaking Bad on Netflix', { intent: 'play', query: 'breaking bad', service: 'netflix', playKind: 'title' }],
+  ['stream dune on max', { intent: 'play', query: 'dune', service: 'hbomax' }],
+  ['play the office on some streaming service', { intent: 'play', query: 'the office', service: 'any' }],
+  ['start playing lofi hip hop on youtube', { intent: 'play', query: 'lofi hip hop', service: 'youtube' }]
 ];
 let fails = 0;
 cases.forEach(([text, want]) => {

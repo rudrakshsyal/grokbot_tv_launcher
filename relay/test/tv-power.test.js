@@ -78,14 +78,14 @@ const L = 'GlassHome1.launcher', NF = 'org.tizen.netflix-app';
   // 13. timer-driven end to end
   TV.power = 'standby'; a = mk({ pollMs: 40, settleMs: 50 }); a.pw.start(); await wait(120);
   TV.power = 'on'; TV.running = {}; const t0 = Date.now(); while (!a.launched.length && Date.now() - t0 < 2000) await wait(20);
-  ok(a.launched.join() === 'power on' && a.logs.join('|') === 'tv power off (QN75QN90AAFXZA)|tv power on (QN75QN90AAFXZA)|opened ' + L + ' (power on, rest)', 'polling loop: off -> on -> opened (log: ' + a.logs.join(' | ') + ')');
+  ok(a.launched.join() === 'power on' && a.logs.filter(l => !/^learned/.test(l)).join('|') === 'tv power off (QN75QN90AAFXZA)|tv power on (QN75QN90AAFXZA)|opened ' + L + ' (power on, rest)', 'polling loop: off -> on -> opened (log: ' + a.logs.join(' | ') + ')');
   a.pw.stop(); a.tv.close();
 
   // 14. relay: log lines while the TV is off and the phone hammers keys
   const lines = []; const cl = console.log; console.log = (...x) => lines.push(x.join(' '));
   TV.power = 'down';
   const tok = path.join(tmp, 'paired.json'); fs.writeFileSync(tok, JSON.stringify({ token: 'T-12345' }));
-  Object.assign(process.env, { LOG: '1', TV_IP: '127.0.0.1', TV_WS_PORT: '1', TV_REST_PORT: String(TV.restPort), TV_TOKEN_FILE: tok, TV_POLL_MS: '60', AUTO_LAUNCH_DELAY_MS: '0', MOCK: '1' });
+  Object.assign(process.env, { DATA_DIR: require('fs').mkdtempSync(require('os').tmpdir() + '/gh-data-'), CHATS_DIR: require('fs').mkdtempSync(require('os').tmpdir() + '/gh-chats-'), LOG: '1', TV_IP: '127.0.0.1', TV_WS_PORT: '1', TV_REST_PORT: String(TV.restPort), TV_TOKEN_FILE: tok, TV_POLL_MS: '60', AUTO_LAUNCH_DELAY_MS: '0', MOCK: '1' });
   const relay = require('../server');
   await new Promise(r => relay.server.listen(0, '127.0.0.1', r)); relay.tvPower.start();
   const base = 'http://127.0.0.1:' + relay.server.address().port;

@@ -125,7 +125,7 @@ let pass = 0; const ok = (c, m) => { assert.ok(c, m); pass++; console.log('  ok 
 
   // relay routes
   TV.mode = 'allow'; rest.status = 200;
-  Object.assign(process.env, { LOG: '0', TV_IP: '127.0.0.1', TV_WS_PORT: String(wsPort), TV_REST_PORT: String(restPort), TV_TOKEN_FILE: tokenFile, TV_MAC: '' });
+  Object.assign(process.env, { DATA_DIR: require('fs').mkdtempSync(require('os').tmpdir() + '/gh-data-'), CHATS_DIR: require('fs').mkdtempSync(require('os').tmpdir() + '/gh-chats-'), LOG: '0', TV_IP: '127.0.0.1', TV_WS_PORT: String(wsPort), TV_REST_PORT: String(restPort), TV_TOKEN_FILE: tokenFile, TV_MAC: '' });
   const relay = require('../server');
   await new Promise(r2 => relay.server.listen(0, '127.0.0.1', r2));
   const base = 'http://127.0.0.1:' + relay.server.address().port;
@@ -139,7 +139,13 @@ let pass = 0; const ok = (c, m) => { assert.ok(c, m); pass++; console.log('  ok 
   const apps = await (await fetch(base + '/remote/apps')).json();
   ok(apps.apps.length >= 6 && apps.apps[0].appId && apps.launcher.appId === 'GlassHome1.launcher', '/remote/apps lists dock apps from the TV app config');
   const dockSnap = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'dock-apps.json'), 'utf8'));
-  ok(JSON.stringify(dockSnap.apps) === JSON.stringify(apps.apps), 'dock-apps.json snapshot matches js/config.js + js/apps.js (run node relay/dock-apps.js --write if not)');
+  // since the post-v6.1 TV fix the snapshot (what the deployed relay uses for REST launches) may carry the app's Samsung store id
+  // instead of tizenIds[0]; anything else must match js/config.js + js/apps.js exactly
+  const APPS = (() => { const w = {}, f = path.join(__dirname, '..', '..', 'js', 'apps.js'); if (!fs.existsSync(f)) return {};   // deployed relay: no ../js, /remote/apps is the snapshot itself
+    require('vm').runInNewContext(fs.readFileSync(f, 'utf8'), { window: w }); return w.RH_APPS || {}; })();
+  const sameApp = (s, g) => s && g && JSON.stringify(Object.assign({}, s, { appId: 0 })) === JSON.stringify(Object.assign({}, g, { appId: 0 })) &&
+    (s.appId === g.appId || ((APPS[g.key] || {}).storeIds || []).indexOf(s.appId) >= 0);
+  ok(dockSnap.apps.length === apps.apps.length && apps.apps.every((g, i) => sameApp(dockSnap.apps[i], g)), 'dock-apps.json snapshot matches js/config.js + js/apps.js (appId = tizen id or store id; run node relay/dock-apps.js --write if not)');
   x = await post('/remote/launch', { app: 'netflix' }); ok(x.code === 200 && x.j.via === 'rest' && rest.calls.pop() === 'POST /api/v2/applications/' + apps.apps.filter(a => a.key === 'netflix')[0].appId, 'POST /remote/launch dock app');
   x = await post('/remote/launch', { app: 'launcher' }); ok(x.code === 200 && rest.calls.pop() === 'POST /api/v2/applications/GlassHome1.launcher', 'Home launcher button launches GlassHome1.launcher');
   x = await post('/remote/launch', { app: 'org.evil.app' }); ok(x.code === 400, 'only dock apps can be launched');

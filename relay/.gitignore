@@ -4,3 +4,4 @@ logs/
 reports/
 .env.sh
 *.env
+data/

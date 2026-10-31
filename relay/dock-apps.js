@@ -1,6 +1,7 @@
 'use strict';
 // Dock apps for the phone remote, read from the TV app's own js/config.js (dock.main + dock.extra) and js/apps.js
-// (name, colour, tizenIds[0] = the ID verified on a 2021 QN90A). The deployed relay has no ../js, so
+// (name, colour, storeIds[0] = the numeric Samsung app id that the TV's REST API (:8001) launches; tizenIds[0] only
+// when an app has no store id). The deployed relay has no ../js, so
 // `node dock-apps.js --write` saves a snapshot to dock-apps.json that is used when ../js isn't there.
 const fs = require('fs'), path = require('path'), vm = require('vm');
 const SNAP = path.join(__dirname, 'dock-apps.json');
@@ -13,7 +14,7 @@ function fromTvApp(dir) {
   const C = win.RH_CONFIG || {}, A = win.RH_APPS || {}, dock = C.dock || {}, over = C.appIdOverrides || {};
   const list = [].concat(dock.main || [], dock.extra || []).filter((k, i, a) => A[k] && a.indexOf(k) === i);
   return { source: 'js/config.js dock + js/apps.js', launcher: LAUNCHER,
-    apps: list.map(k => ({ key: k, name: A[k].name, color: A[k].color, appId: ((over[k] || [])[0]) || A[k].tizenIds[0], main: (dock.main || []).indexOf(k) >= 0 })) };
+    apps: list.map(k => ({ key: k, name: A[k].name, color: A[k].color, appId: (A[k].storeIds || [])[0] || ((over[k] || [])[0]) || A[k].tizenIds[0], main: (dock.main || []).indexOf(k) >= 0 })) };
 }
 function load() {
   try { return fromTvApp(); } catch (e) {}

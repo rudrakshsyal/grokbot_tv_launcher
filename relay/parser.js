@@ -45,6 +45,21 @@ function parse(text) {
   if (/\b(weather|forecast|temperature|rain(ing|y)?|umbrella|jacket|sunny|cold|hot|degrees)\b/.test(t) && !/\b(movies?|shows?)\b/.test(t)) {
     out.intent = 'weather'; out.day = /\btomorrow\b/.test(t) ? 'tomorrow' : /\b(week|weekend)\b/.test(t) ? 'week' : 'today'; return out;
   }
+  // play X (on Y): songs/artists/videos on YouTube, shows/movies on a streaming service (v6)
+  let pm = /^(?:please |hey |ok )?(?:can you |could you |would you )?(?:play|stream|put on|start playing)\s+(.+?)(?:\s+(?:please|for me))?$/.exec(t);
+  if (pm) {
+    const rest = pm[1], bare = rest.replace(/^(?:the\s+)?/, '').replace(/\s+app$/, '');
+    if (!(out.platform && PLATFORMS[out.platform].words.indexOf(bare) >= 0)) {   // "put on netflix" stays "open"
+      const on = /\s+(?:on|in|from|via)\s+(youtube|netflix|hulu|prime(?: video)?|amazon(?: prime)?(?: video)?|disney\+?|disney plus|hbo(?: max)?|max|apple tv\+?|apple tv plus|peacock|(?:some|a|any)\s+streaming\s+(?:service|app)s?)$/.exec(rest);
+      const svc = on ? (/streaming/.test(on[1]) ? 'any' : (findPlatform(on[1]) || (/^max$/.test(on[1]) ? 'hbomax' : 'any'))) : null;
+      const what = (on ? rest.slice(0, on.index) : rest).trim();
+      const music = /\b(songs?|music|tracks?|album|playlist|music videos?|by)\b/.test(what) || (!svc && !/\b(movie|film|show|series|episode)\b/.test(what));
+      out.intent = 'play'; out.query = what; out.service = svc || (music ? 'youtube' : 'any');
+      out.playKind = out.service === 'youtube' ? (/\bvideos?\b/.test(what) && !/music/.test(what) ? 'video' : 'music') : 'title';
+      out.different = /\b(other|another|different|something else|new)\b/.test(what);
+      return out;
+    }
+  }
   // launcher actions
   let m = /^(?:please |hey |ok )?(?:can you |could you )?(open|launch|start|go to|switch to|put on|fire up)\s+(.+?)(?:\s+(?:app|please))?$/.exec(t);
   if (m && out.platform) { out.intent = 'open'; return out; }
@@ -80,6 +95,7 @@ function parse(text) {
 const fmtRun = m => m % 60 === 0 ? (m / 60) + ' h' : m > 60 ? Math.floor(m / 60) + 'h ' + (m % 60) + 'm' : m + ' min';
 function describe(p) {   // the "Understood" step detail
   const bits = [];
+  if (p.intent === 'play') return 'play · \u201c' + p.query + '\u201d on ' + (p.service === 'any' ? 'a streaming service' : PLATFORMS[p.service].name);
   if (p.intent === 'weather') return 'weather · ' + p.day;
   if (p.intent === 'open') return 'open app · ' + PLATFORMS[p.platform].name;
   if (p.intent === 'show_platform') return 'show in Discover · ' + PLATFORMS[p.platform].name;
