@@ -11,56 +11,56 @@
       "key": "youtube",
       "name": "YouTube",
       "color": "#ff2a2a",
-      "appId": "9Ur5IzDKqV.TizenYouTube",
+      "appId": "111299001912",
       "main": true
     },
     {
       "key": "netflix",
       "name": "Netflix",
       "color": "#e50914",
-      "appId": "org.tizen.netflix-app",
+      "appId": "3201907018807",
       "main": true
     },
     {
       "key": "hbomax",
       "name": "HBO Max",
       "color": "#7b3cff",
-      "appId": "5b8c3eb16b.BeamCTVDev",
+      "appId": "3202301029760",
       "main": true
     },
     {
       "key": "prime",
       "name": "Prime Video",
       "color": "#1fa3ff",
-      "appId": "org.tizen.primevideo",
+      "appId": "3201910019365",
       "main": true
     },
     {
       "key": "hulu",
       "name": "Hulu",
       "color": "#1ce783",
-      "appId": "LBUAQX1exg.Hulu",
+      "appId": "3201601007625",
       "main": true
     },
     {
       "key": "appletv",
       "name": "Apple TV",
       "color": "#c9ced6",
-      "appId": "com.samsung.tv.aria-video",
+      "appId": "3201807016597",
       "main": true
     },
     {
       "key": "peacock",
       "name": "Peacock",
       "color": "#f5b400",
-      "appId": "gzcc4LRFBF.Peacock",
+      "appId": "3202006020991",
       "main": false
     },
     {
       "key": "disney",
       "name": "Disney+",
       "color": "#1f6bff",
-      "appId": "MCmYXNxgcu.DisneyPlus",
+      "appId": "3201901017640",
       "main": false
     }
   ]

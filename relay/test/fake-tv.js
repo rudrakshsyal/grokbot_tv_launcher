@@ -10,7 +10,8 @@ async function start(o) {
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'faketv-'));
   execFileSync('openssl', ['req', '-x509', '-newkey', 'rsa:2048', '-nodes', '-keyout', path.join(tmp, 'k.pem'), '-out', path.join(tmp, 'c.pem'), '-days', '1', '-subj', '/CN=FakeTV'], { stdio: 'ignore' });
   const TV = { mode: o.mode || 'allow', token: o.token || 'T-12345', allowDelay: o.allowDelay || 80, conns: [], urls: [], frames: [], pongs: [], unmasked: 0, headers: [], rest: { status: 200, calls: [] }, tmp, srvFrame,
-    power: o.power || 'on', tokenAuth: o.tokenAuth == null ? true : o.tokenAuth, running: {}, model: 'QN75QN90AAFXZA' };
+    power: o.power || 'on', tokenAuth: o.tokenAuth == null ? true : o.tokenAuth, running: {}, model: 'QN75QN90AAFXZA', wifiMac: o.wifiMac === undefined ? '02:00:5E:10:20:30' : o.wifiMac,
+    dial: { status: 201, calls: [], requireOrigin: {} }, events: [], onFrame: null };
   const onSock = s => {
     let head = Buffer.alloc(0), up = false, buf = Buffer.alloc(0);
     TV.conns.push(s); s.on('error', () => {});
@@ -37,7 +38,16 @@ async function start(o) {
       buf = Buffer.concat([buf, d]);
       if (buf.length >= 2 && !(buf[1] & 0x80)) TV.unmasked++;
       const r = decodeFrames(buf); buf = r.rest;
-      r.frames.forEach(f => { if (f.opcode === 0xA) TV.pongs.push(f.payload.toString()); else if (f.opcode === 1) TV.frames.push(JSON.parse(f.payload.toString())); });
+      r.frames.forEach(f => {
+        if (f.opcode === 0xA) return TV.pongs.push(f.payload.toString());
+        if (f.opcode !== 1) return;
+        const j = JSON.parse(f.payload.toString()); TV.frames.push(j);
+        const pr = j.params || {};
+        if (pr.TypeOfRemote === 'SendRemoteKey') TV.events.push('key ' + pr.DataOfCmd);
+        else if (pr.TypeOfRemote === 'SendInputString') TV.events.push('text ' + Buffer.from(pr.Cmd, 'base64').toString('utf8'));
+        else if (pr.TypeOfRemote === 'SendInputEnd') TV.events.push('input-end');
+        if (TV.onFrame) TV.onFrame(j, o => s.write(srvFrame(JSON.stringify(o))));
+      });
     });
   };
   TV.wss = tls.createServer({ key: fs.readFileSync(path.join(tmp, 'k.pem')), cert: fs.readFileSync(path.join(tmp, 'c.pem')) }, s => { s.secure = true; onSock(s); });
@@ -46,15 +56,35 @@ async function start(o) {
   TV.restSrv = http.createServer((req, res) => {
     if (TV.power === 'down') return req.socket.destroy();
     TV.rest.calls.push(req.method + ' ' + req.url);
-    if (req.method === 'GET' && req.url === '/api/v2/') { res.writeHead(200); return res.end(JSON.stringify({ device: { PowerState: TV.power, TokenAuthSupport: String(TV.tokenAuth), modelName: TV.model }, name: '[TV] Fake', type: 'Samsung SmartTV' })); }
+    if (req.method === 'GET' && req.url === '/api/v2/') { res.writeHead(200); return res.end(JSON.stringify({ device: { PowerState: TV.power, TokenAuthSupport: String(TV.tokenAuth), modelName: TV.model, wifiMac: TV.wifiMac || undefined }, name: '[TV] Fake', type: 'Samsung SmartTV' })); }
     const m = /^\/api\/v2\/applications\/([^/?]+)$/.exec(req.url);
     if (m && req.method === 'GET') { res.writeHead(200); return res.end(JSON.stringify({ id: m[1], name: m[1], running: !!TV.running[m[1]], visible: !!TV.running[m[1]], version: '1.0' })); }
-    if (m && req.method === 'POST' && TV.rest.status === 200) { Object.keys(TV.running).forEach(k => TV.running[k] = false); TV.running[decodeURIComponent(m[1])] = true; }
+    if (m && req.method === 'POST' && TV.rest.status === 200) { Object.keys(TV.running).forEach(k => TV.running[k] = false); TV.running[decodeURIComponent(m[1])] = true; TV.events.push('launch ' + decodeURIComponent(m[1])); }
     res.writeHead(TV.rest.status); res.end(TV.rest.status === 200 ? 'true' : 'nope');
   });
+  // DIAL (the TV's second-screen protocol, :8080/ws/apps/<App>): POST body -> 201 Created + app runs
+  const DIAL_APPS = { YouTube: '9Ur5IzDKqV.TizenYouTube', Netflix: 'org.tizen.netflix-app' };
+  TV.dialSrv = http.createServer((req, res) => {
+    let b = ''; req.on('data', c => b += c); req.on('end', () => {
+      if (TV.power === 'down') return req.socket.destroy();
+      const m = /^\/ws\/apps\/([A-Za-z]+)$/.exec(req.url);
+      TV.dial.calls.push({ method: req.method, app: m && m[1], body: b, type: req.headers['content-type'], origin: req.headers.origin });
+      if (!m || !DIAL_APPS[m[1]]) { res.writeHead(404); return res.end(); }
+      if (req.method === 'GET') { res.writeHead(200, { 'Content-Type': 'text/xml' }); return res.end('<?xml version="1.0"?><service xmlns="urn:dial-multiscreen-org:schemas:dial"><name>' + m[1] + '</name><state>' + (TV.running[DIAL_APPS[m[1]]] ? 'running' : 'stopped') + '</state></service>'); }
+      if (req.method !== 'POST') { res.writeHead(404); return res.end(); }
+      if (TV.dial.requireOrigin[m[1]] && req.headers.origin !== TV.dial.requireOrigin[m[1]]) { TV.events.push('dial ' + m[1] + ' 403'); res.writeHead(403); return res.end(); }
+      if (TV.dial.status === 201) {
+        const was = !!TV.running[DIAL_APPS[m[1]]];      // like the real TV: 201 Created on a cold start, 200 when it was running
+        Object.keys(TV.running).forEach(k => TV.running[k] = false); TV.running[DIAL_APPS[m[1]]] = true; TV.events.push('dial ' + m[1] + ' ' + (was ? 200 : 201));
+        res.writeHead(was ? 200 : 201, { Location: 'http://127.0.0.1/ws/apps/' + m[1] + '/run' }); return res.end();
+      }
+      res.writeHead(TV.dial.status); res.end();
+    });
+  });
+  await new Promise(r => TV.dialSrv.listen(0, '127.0.0.1', r)); TV.dialPort = TV.dialSrv.address().port;
   await new Promise(r => TV.wss.listen(0, '127.0.0.1', r)); await new Promise(r => TV.ws.listen(0, '127.0.0.1', r)); await new Promise(r => TV.restSrv.listen(0, '127.0.0.1', r));
   TV.wsPort = TV.wss.address().port; TV.plainPort = TV.ws.address().port; TV.restPort = TV.restSrv.address().port;
-  TV.close = () => { TV.conns.forEach(c => c.destroy()); TV.wss.close(); TV.ws.close(); TV.restSrv.close(); fs.rmSync(tmp, { recursive: true, force: true }); };
+  TV.close = () => { TV.conns.forEach(c => c.destroy()); TV.wss.close(); TV.ws.close(); TV.restSrv.close(); TV.dialSrv.close(); fs.rmSync(tmp, { recursive: true, force: true }); };
   return TV;
 }
 module.exports = { start, srvFrame };

@@ -1,10 +1,10 @@
 <!doctype html><html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,viewport-fit=cover,user-scalable=no">
 <meta name="apple-mobile-web-app-capable" content="yes"><meta name="mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"><meta name="apple-mobile-web-app-title" content="Remote">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"><meta name="apple-mobile-web-app-title" content="Glass Home">
 <meta name="theme-color" content="#07080d"><meta name="format-detection" content="telephone=no">
 <link rel="manifest" href="/manifest.json"><link rel="apple-touch-icon" href="/apple-touch-icon.png"><link rel="icon" href="/icon-192.png">
-<title>Glass Home Remote</title>
+<title>Glass Home</title>
 <style>
 :root{--fg:#eef0f7;--dim:#8d93ab;--faint:#5d637c;--glass:rgba(255,255,255,.065);--glass2:rgba(255,255,255,.11);--line:rgba(255,255,255,.09);--acc:#7c8cff;--ok:#5fe0a1;--warn:#ffc561;--bad:#ff8080}
 [hidden]{display:none!important}
@@ -53,43 +53,87 @@ button{font:inherit;color:inherit;border:0;background:none;padding:0;cursor:poin
 .app{flex:none;display:flex;align-items:center;gap:8px;height:42px;padding:0 15px 0 12px;border-radius:99px;font-size:14px;font-weight:500;color:#dfe2ef}
 .app i{width:9px;height:9px;border-radius:50%;flex:none}
 .cap{font-size:11px;letter-spacing:.09em;text-transform:uppercase;color:var(--faint);font-weight:600;align-self:flex-start;margin:0 0 2px 4px}
-/* yo-yo */
-#vYoyo{justify-content:flex-start;padding-top:4px}
-.ystate{margin-top:10px;font-size:12px;letter-spacing:.09em;text-transform:uppercase;font-weight:600;color:var(--dim);height:16px}
-#heard{margin-top:10px;min-height:62px;max-height:96px;overflow:hidden;font-size:22px;font-weight:500;line-height:1.3;text-align:center;letter-spacing:-.01em;max-width:340px;color:#f3f4fa;-webkit-user-select:text;user-select:text}
+/* yo-yo: chat */
+#vYoyo{justify-content:flex-start;align-items:stretch;padding-top:6px}
+.chead{display:flex;align-items:center;gap:10px;flex:none;height:44px}
+.ib{flex:none;width:40px;height:40px;border-radius:50%;display:grid;place-items:center}
+.ib svg{width:19px;height:19px;fill:none;stroke:#e6e9f5;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.ctitle{flex:1;min-width:0;text-align:center}
+#ctitle{font-size:15px;font-weight:650;letter-spacing:-.01em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ystate{font-size:10.5px;letter-spacing:.09em;text-transform:uppercase;font-weight:600;color:var(--dim);height:14px;margin-top:1px}
+.thread{flex:1;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;display:flex;flex-direction:column;gap:9px;padding:12px 2px 10px;mask-image:linear-gradient(transparent,#000 14px,#000 calc(100% - 10px),transparent);scrollbar-width:none}
+.thread::-webkit-scrollbar{display:none}
+.empty{margin:auto 10px;text-align:center;color:var(--dim);font-size:15px;line-height:1.45}
+.empty b{display:block;color:var(--fg);font-size:19px;font-weight:650;margin-bottom:6px;letter-spacing:-.01em}
+.msg{position:relative;max-width:84%;padding:10px 14px;border-radius:21px;font-size:16px;line-height:1.38;white-space:pre-wrap;word-wrap:break-word;-webkit-user-select:text;user-select:text;animation:pop .28s cubic-bezier(.3,.8,.3,1)}
+@keyframes pop{from{opacity:0;transform:translateY(6px) scale(.98)}}
+.msg.me{align-self:flex-end;border-bottom-right-radius:7px;color:#fff;background:linear-gradient(140deg,rgba(132,146,255,.62),rgba(118,84,255,.46));border:1px solid rgba(255,255,255,.2);-webkit-backdrop-filter:blur(22px) saturate(180%);backdrop-filter:blur(22px) saturate(180%);box-shadow:inset 0 1px 0 rgba(255,255,255,.28),inset 0 -8px 18px rgba(40,20,120,.18),0 8px 22px rgba(70,60,200,.25)}
+.msg.bot{align-self:flex-start;border-bottom-left-radius:7px;color:#e9ebf5;background:linear-gradient(160deg,rgba(255,255,255,.11),rgba(255,255,255,.045));border:1px solid rgba(255,255,255,.12);-webkit-backdrop-filter:blur(26px) saturate(170%);backdrop-filter:blur(26px) saturate(170%);box-shadow:inset 0 1px 0 rgba(255,255,255,.14),0 10px 26px rgba(0,0,0,.25)}
+.msg.err{border-color:rgba(255,128,128,.35)}
+.msg small{display:block;margin-top:6px;color:var(--faint);font-size:11.5px;white-space:normal}
+.msg .pl{display:inline-flex;align-items:center;gap:6px;margin-top:8px;padding:5px 10px;border-radius:99px;font-size:12.5px;font-weight:600;background:rgba(95,224,161,.14);color:#a6f1cb;white-space:normal}
+.msg .pl.open{background:rgba(124,140,255,.16);color:#c6cdff}.msg .pl.no{background:rgba(255,197,97,.14);color:#ffd99a}
+.msg .its{display:flex;flex-wrap:wrap;gap:5px;margin-top:8px}
+.msg .its span{font-size:12px;padding:3px 8px;border-radius:9px;background:rgba(255,255,255,.08);color:#d5d9ea}
+.msg .rp{float:right;margin:-3px -6px 4px 8px;width:30px;height:30px;border-radius:50%;display:grid;place-items:center;background:rgba(255,255,255,.1)}
+.msg .rp svg{width:16px;height:16px;fill:none;stroke:#dfe3f2;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.msg .rp.on{background:var(--acc)}
+.msg .tvb{display:flex;align-items:center;gap:6px;margin-top:9px;padding:6px 12px;border-radius:99px;font-size:12.5px;font-weight:600;color:#d7dcff;background:rgba(124,140,255,.16);border:1px solid rgba(255,255,255,.12);white-space:normal;text-align:left;line-height:1.3}
+.msg .tvb svg{flex:none;width:15px;height:15px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.msg .tvb.arm{color:#ffe2a8;background:rgba(255,197,97,.16);border-color:rgba(255,197,97,.3)}
+.msg .tvb.busy{opacity:.55}
+.dots{display:inline-flex;gap:5px;padding:4px 2px}.dots i{width:7px;height:7px;border-radius:50%;background:#c9cfef;opacity:.35;animation:dot 1.1s infinite}
+.dots i:nth-child(2){animation-delay:.15s}.dots i:nth-child(3){animation-delay:.3s}
+@keyframes dot{40%{opacity:1;transform:translateY(-3px)}}
+.dock{flex:none;padding-top:6px}
+#heard{min-height:20px;max-height:44px;overflow:hidden;margin:0 4px 8px;font-size:15px;font-weight:500;line-height:1.35;text-align:center;color:#f3f4fa;-webkit-user-select:text;user-select:text}
 #heard.interim{color:var(--dim)}
-.micwrap{position:relative;flex:none;margin:8px 0 6px;width:200px;height:200px;display:grid;place-items:center}
-#mic{position:relative;width:156px;height:156px;border-radius:50%;touch-action:none;-webkit-user-select:none;user-select:none;
- background:radial-gradient(circle at 34% 28%,#c3cdff,#7180ff 42%,#4434c6 100%);box-shadow:0 0 50px rgba(103,116,255,.45),inset 0 -10px 30px rgba(0,0,0,.3),inset 0 2px 0 rgba(255,255,255,.35);transition:transform .2s cubic-bezier(.3,.8,.3,1),filter .2s}
-#mic svg{width:42px;height:42px;fill:#fff;opacity:.95;pointer-events:none}
-.micwrap:before{content:'';position:absolute;inset:0;border-radius:50%;border:1px solid rgba(160,172,255,.25);transform:scale(.8);opacity:0;transition:.3s}
-.listening #mic{transform:scale(1.1);background:radial-gradient(circle at 34% 28%,#ffd0e2,#ff6f9a 42%,#b8265e 100%);box-shadow:0 0 70px rgba(255,100,150,.55),inset 0 -10px 30px rgba(0,0,0,.3),inset 0 2px 0 rgba(255,255,255,.35)}
-.listening .micwrap:before{opacity:1;animation:ring 1.6s ease-out infinite}
+.comp{display:flex;align-items:center;gap:10px}
+form{flex:1;min-width:0;display:flex;align-items:center;height:52px;border-radius:26px;padding:0 5px 0 4px}
+input[type=text]{flex:1;min-width:0;height:44px;padding:0 12px;border:0;background:none;font:16px -apple-system,sans-serif;color:#fff;outline:none;-webkit-user-select:text;user-select:text}
+input::placeholder{color:var(--faint)}
+.go{flex:none;width:40px;height:40px;border-radius:50%;display:grid;place-items:center;background:var(--acc)!important;opacity:.35;transition:opacity .2s,transform .14s}
+form.has .go{opacity:1}
+.go svg{width:19px;height:19px;fill:none;stroke:#fff;stroke-width:2.4;stroke-linecap:round;stroke-linejoin:round}
+.micwrap{position:relative;flex:none;width:68px;height:68px;display:grid;place-items:center}
+#mic{position:relative;width:64px;height:64px;border-radius:50%;touch-action:none;-webkit-user-select:none;user-select:none;
+ background:radial-gradient(circle at 34% 28%,#c3cdff,#7180ff 42%,#4434c6 100%);box-shadow:0 0 28px rgba(103,116,255,.45),inset 0 -6px 16px rgba(0,0,0,.3),inset 0 2px 0 rgba(255,255,255,.35);transition:transform .2s cubic-bezier(.3,.8,.3,1),filter .2s}
+#mic svg{width:27px;height:27px;fill:#fff;opacity:.95;pointer-events:none}
+.micwrap:before{content:'';position:absolute;inset:-6px;border-radius:50%;border:1.5px solid rgba(255,140,180,.45);transform:scale(.8);opacity:0;transition:.3s;pointer-events:none}
+.listening #mic{transform:scale(1.14);background:radial-gradient(circle at 34% 28%,#ffd0e2,#ff6f9a 42%,#b8265e 100%);box-shadow:0 0 44px rgba(255,100,150,.6),inset 0 -6px 16px rgba(0,0,0,.3),inset 0 2px 0 rgba(255,255,255,.35)}
+.listening .micwrap:before{opacity:1;animation:ring 1.4s ease-out infinite}
 .cancelling #mic{transform:scale(.96);filter:grayscale(.85) brightness(.75)}
 .sending #mic{animation:breathe 1.2s ease-in-out infinite}
-@keyframes ring{0%{transform:scale(.8);opacity:.9}100%{transform:scale(1.25);opacity:0}}
-@keyframes breathe{50%{transform:scale(.95);filter:brightness(1.15)}}
-#micl{font-size:15px;font-weight:600;color:#dfe3f2;height:22px}
-.ans{width:100%;margin-top:14px;border-radius:20px;padding:14px 16px;min-height:64px;max-height:30vh;overflow:auto;font-size:16px;color:#e3e6f2;display:none;-webkit-user-select:text;user-select:text}
-.ans.on{display:block}
-.ans small{display:block;margin-top:8px;color:var(--faint);font-size:12px}
-.ybot{margin-top:auto;width:100%}
-form{display:flex;gap:8px;width:100%}
-input[type=text]{flex:1;min-width:0;height:46px;padding:0 16px;border-radius:23px;font:16px -apple-system,sans-serif;color:#fff;outline:none;-webkit-user-select:text;user-select:text}
-input::placeholder{color:var(--faint)}
-.go{width:46px;height:46px;border-radius:50%;display:grid;place-items:center;background:var(--acc)!important}
-.go svg{width:20px;height:20px;fill:none;stroke:#fff;stroke-width:2.4;stroke-linecap:round;stroke-linejoin:round}
-.yopts{display:flex;justify-content:space-between;align-items:center;gap:8px;margin:0 0 10px}
+@keyframes ring{0%{transform:scale(.85);opacity:.9}100%{transform:scale(1.5);opacity:0}}
+@keyframes breathe{50%{transform:scale(.94);filter:brightness(1.15)}}
+.yopts{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-top:10px}
 .lang{display:flex;padding:3px;border-radius:16px;gap:2px}
-.lang button{height:28px;padding:0 11px;border-radius:13px;font:600 13px -apple-system,sans-serif;color:var(--dim);transition:background .2s,color .2s}
+.lang button{height:28px;padding:0 10px;border-radius:13px;font:600 12.5px -apple-system,sans-serif;color:var(--dim);transition:background .2s,color .2s}
 .lang button.on{background:rgba(255,255,255,.16);color:#fff}
-.newc{height:34px;padding:0 13px;border-radius:17px;display:flex;align-items:center;gap:6px;font:600 13px -apple-system,sans-serif;color:#dfe3f2}
-.newc svg{width:15px;height:15px;fill:none;stroke:currentColor;stroke-width:2.2;stroke-linecap:round}
-.ans .rp{float:right;margin:-4px -6px 4px 8px;width:32px;height:32px;border-radius:50%;display:grid;place-items:center;background:rgba(255,255,255,.1)}
-.ans .rp svg{width:17px;height:17px;fill:none;stroke:#dfe3f2;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
-.ans .rp.on{background:var(--acc)}
-.yfoot{display:flex;justify-content:space-between;align-items:center;margin-top:10px;font-size:12px;color:var(--faint)}
-.sw{display:flex;align-items:center;gap:7px}.sw input{accent-color:var(--acc);width:17px;height:17px;margin:0}
+.sw{display:flex;align-items:center;gap:7px;font-size:12.5px;color:var(--dim);font-weight:600}.sw input{accent-color:var(--acc);width:17px;height:17px;margin:0}
+.yfoot{display:flex;justify-content:space-between;gap:10px;margin-top:8px;font-size:11.5px;color:var(--faint)}
+#micl{font-weight:600;color:var(--dim);white-space:nowrap}
+#brain{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+/* chats drawer */
+.drawer{position:fixed;inset:0;z-index:8;background:rgba(4,5,10,.45);-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);animation:fade .2s}
+@keyframes fade{from{opacity:0}}
+.dsheet{position:absolute;left:10px;top:calc(env(safe-area-inset-top) + 10px);bottom:calc(env(safe-area-inset-bottom) + 10px);width:min(330px,86vw);border-radius:28px;display:flex;flex-direction:column;padding:14px 10px 10px;background:rgba(22,24,38,.72)!important;animation:slide .28s cubic-bezier(.3,.8,.3,1)}
+@keyframes slide{from{transform:translateX(-30px);opacity:0}}
+.dh{display:flex;align-items:center;gap:8px;padding:0 6px 10px}
+.dh b{flex:1;font-size:20px;font-weight:700;letter-spacing:-.02em}
+.dh button{height:32px;padding:0 13px;border-radius:16px;font:600 13.5px -apple-system,sans-serif;background:rgba(255,255,255,.1)}
+.dh button.pri{background:var(--acc)}
+#clist{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;display:flex;flex-direction:column;gap:4px}
+.crow{display:flex;align-items:center;gap:4px;border-radius:16px;padding:9px 6px 9px 12px;transition:background .15s}
+.crow.cur{background:rgba(124,140,255,.16)}
+.crow .cm{flex:1;min-width:0;text-align:left}
+.crow .ct{font-size:15px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.crow .cp{font-size:12.5px;color:var(--dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:1px}
+.crow input{width:100%;height:32px;padding:0 10px;border-radius:10px;border:1px solid var(--line);background:rgba(255,255,255,.08);font:600 15px -apple-system,sans-serif}
+.crow .ca{flex:none;height:32px;min-width:32px;border-radius:16px;display:grid;place-items:center;padding:0 7px;color:var(--dim);font:600 12.5px -apple-system,sans-serif}
+.crow .ca svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.crow .ca.arm{background:rgba(255,96,96,.22);color:#ffb0b0}
+.cnone{color:var(--faint);text-align:center;font-size:14px;margin-top:30px}
 /* home */
 #vHome{justify-content:center}
 .soon{width:100%;max-width:340px;border-radius:26px;padding:30px 24px;text-align:center}
@@ -145,17 +189,23 @@ input::placeholder{color:var(--faint)}
   <div style="width:100%"><div class="cap">Open</div><div class="apps" id="apps"></div></div>
  </section>
  <section class="view" id="vYoyo">
-  <div class="ystate" id="ystate">Yo-Yo</div>
-  <div id="heard" class="interim">Hold the button and ask for a show, a movie, ratings or the weather.</div>
-  <div class="micwrap"><button id="mic" aria-label="Hold to talk"><svg viewBox="0 0 24 24"><path d="M12 15a3.5 3.5 0 0 0 3.5-3.5v-6a3.5 3.5 0 1 0-7 0v6A3.5 3.5 0 0 0 12 15zm6-3.5a6 6 0 0 1-12 0H4.5a7.5 7.5 0 0 0 6.75 7.46V21h1.5v-2.04a7.5 7.5 0 0 0 6.75-7.46z"/></svg></button></div>
-  <div id="micl">Hold to talk</div>
-  <div class="ans glass" id="ans"></div>
-  <div class="ybot">
-   <div class="yopts"><div class="lang glass" id="lang" role="radiogroup" aria-label="Language"><button data-l="en-US" role="radio">English</button><button data-l="hi-IN" role="radio" lang="hi">हिन्दी</button><button data-l="en-IN" role="radio">Hinglish</button></div>
-    <button class="newc glass press" id="newc" aria-label="New chat"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>New chat</button></div>
-   <form id="f"><input id="q" class="glass" type="text" placeholder="Or type to Yo-Yo…" autocomplete="off" enterkeyhint="send"><button class="go press" aria-label="Send"><svg viewBox="0 0 24 24"><path d="M12 19V5M6 11l6-6 6 6"/></svg></button></form>
-   <div class="yfoot"><label class="sw"><input type="checkbox" id="speak"> Speak answers</label><span id="brain"></span></div>
+  <div class="chead">
+   <button class="ib glass press" id="chatsb" aria-label="Chats"><svg viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h10"/></svg></button>
+   <div class="ctitle"><div id="ctitle">New chat</div><div class="ystate" id="ystate">Yo-Yo</div></div>
+   <button class="ib glass press" id="newc" aria-label="New chat"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></button>
   </div>
+  <div class="thread" id="thread"></div>
+  <div class="dock">
+   <div id="heard" class="interim"></div>
+   <div class="comp">
+    <form id="f" class="glass"><input id="q" type="text" placeholder="Message Yo-Yo" autocomplete="off" enterkeyhint="send"><button class="go press" aria-label="Send"><svg viewBox="0 0 24 24"><path d="M12 19V5M6 11l6-6 6 6"/></svg></button></form>
+    <div class="micwrap"><button id="mic" aria-label="Hold to talk"><svg viewBox="0 0 24 24"><path d="M12 15a3.5 3.5 0 0 0 3.5-3.5v-6a3.5 3.5 0 1 0-7 0v6A3.5 3.5 0 0 0 12 15zm6-3.5a6 6 0 0 1-12 0H4.5a7.5 7.5 0 0 0 6.75 7.46V21h1.5v-2.04a7.5 7.5 0 0 0 6.75-7.46z"/></svg></button></div>
+   </div>
+   <div class="yopts"><div class="lang glass" id="lang" role="radiogroup" aria-label="Language"><button data-l="en-US" role="radio">English</button><button data-l="hi-IN" role="radio" lang="hi">हिन्दी</button><button data-l="en-IN" role="radio">Hinglish</button></div>
+    <label class="sw"><input type="checkbox" id="speak"> Speak</label></div>
+   <div class="yfoot"><span id="micl">Hold to talk</span><span id="brain"></span></div>
+  </div>
+  <div class="drawer" id="drawer" hidden><div class="dsheet glass" role="dialog" aria-label="Chats"><div class="dh"><b>Chats</b><button class="press pri" id="dnew">New</button><button class="press" id="dclose">Done</button></div><div id="clist"></div></div></div>
  </section>
  <section class="view" id="vHome">
   <div class="soon glass"><svg viewBox="0 0 24 24"><path d="M3.5 11L12 4l8.5 7"/><path d="M5.5 9.5V20h13V9.5"/><path d="M10 20v-5h4v5"/></svg>
@@ -170,7 +220,7 @@ const $ = id => document.getElementById(id);
 const client = localStorage.getItem('rv.client') || ('p' + Math.random().toString(36).slice(2, 10)); localStorage.setItem('rv.client', client);
 const post = (p, o) => fetch(p, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(o || {}) }).then(r => r.json().catch(() => ({ ok: false, error: 'http ' + r.status })));
 let toastT; function toast(t, ms) { const el = $('toast'); el.textContent = t; el.classList.add('on'); clearTimeout(toastT); toastT = setTimeout(() => el.classList.remove('on'), ms || 2600); }
-document.addEventListener('contextmenu', e => { if (!e.target.closest('input,#heard,.ans')) e.preventDefault(); });
+document.addEventListener('contextmenu', e => { if (!e.target.closest('input,#heard,.msg')) e.preventDefault(); });
 document.addEventListener('gesturestart', e => e.preventDefault());          // no pinch zoom
 
 // ---------- tabs ----------
@@ -242,7 +292,7 @@ let pending = 0;
 const QUIET = { pairing: 1, unpaired: 1, 'pair-timeout': 1, denied: 1 };   // shown by the banner, not a toast
 const ERR = {
   offline: 'The TV is off or not reachable on Wi-Fi.',
-  'no-mac': 'Turning the TV on needs TV_MAC on the relay (see README). Use the TV remote for now.',
+  'no-mac': 'I don\u2019t know the TV\u2019s network address yet. Turn it on once with its remote (the relay learns it), or set TV_MAC on the relay.',
   'launcher-offline': 'Glass Home isn’t open on the TV.'
 };
 let lastErr = '', lastErrAt = 0;
@@ -267,7 +317,13 @@ function holdable(el, onDown, opt) {         // press state + optional auto-repe
   ['pointerup', 'pointercancel', 'lostpointercapture'].forEach(t => el.addEventListener(t, stop));
 }
 document.querySelectorAll('#vRemote [data-k]').forEach(b => holdable(b, () => key(b.dataset.k), { repeat: b.classList.contains('arr') || b.dataset.rep }));
-holdable($('pwr'), () => post('/remote/power', {}).then(r => { remoteResult(r); if (r.ok) toast(r.via === 'wol' ? 'Waking the TV…' : 'Power'); }, () => toast('Can’t reach the relay on the Mac.')));
+let wakeT = null;
+holdable($('pwr'), () => post('/remote/power', {}).then(r => {
+  remoteResult(r); if (!r.ok) return;
+  toast(r.via === 'wol' ? 'Waking the TV\u2026' : 'Power');
+  clearTimeout(wakeT);
+  if (r.via === 'wol' && r.hint) wakeT = setTimeout(() => fetch('/remote/status').then(x => x.json()).then(st => { tvst = st; paintPill(); if (tvOff() || st.state === 'offline') toast(r.hint, 7000); }, () => {}), +(localStorage.getItem('rv.wakewait') || 15000));
+}, () => toast('Can’t reach the relay on the Mac.')));
 // mode: buttons / touchpad
 function mode(m) { const pad = m === 'pad'; $('dpad').hidden = pad; $('pad').hidden = !pad; document.querySelectorAll('#mode button').forEach(b => b.classList.toggle('on', b.dataset.m === m)); localStorage.setItem('rv.mode', m); }
 $('mode').addEventListener('click', e => { const b = e.target.closest('button'); if (b) mode(b.dataset.m); });
@@ -300,11 +356,139 @@ let lang = LANGS[localStorage.getItem('rv.lang')] ? localStorage.getItem('rv.lan
 function setLang(l) { lang = l; localStorage.setItem('rv.lang', l); document.querySelectorAll('#lang button').forEach(b => { const on = b.dataset.l === l; b.classList.toggle('on', on); b.setAttribute('aria-checked', String(on)); }); }
 document.querySelectorAll('#lang button').forEach(b => b.addEventListener('click', () => { if (b.dataset.l !== lang) { setLang(b.dataset.l); toast({ 'en-US': 'Listening in English', 'hi-IN': 'हिन्दी में सुन रही हूँ', 'en-IN': 'Hinglish: English + Hindi, Indian accent' }[lang], 1600); } }));
 setLang(lang);
-$('newc').addEventListener('click', () => {
-  askN++; stopTalk(); if (H) finish(H, 'cancel', true);
-  post('/chat/reset', { client }).then(() => toast('New chat started', 1400), () => toast('Can’t reach the relay on the Mac.'));
-  $('ans').className = 'ans glass'; $('ans').textContent = ''; ui('idle', null, 'New chat. Hold the button and ask anything.', true);
-});
+// ---------- chats (stored on the Mac in relay/data/chats) ----------
+let chatId = localStorage.getItem('rv.chat') || null;
+const thread = $('thread');
+const SVC = { youtube: 'YouTube', netflix: 'Netflix', hbomax: 'Max', prime: 'Prime Video', disney: 'Disney+', hulu: 'Hulu', appletv: 'Apple TV', peacock: 'Peacock' };
+function setChat(id, title) {
+  chatId = id || null; if (chatId) localStorage.setItem('rv.chat', chatId); else localStorage.removeItem('rv.chat');
+  $('ctitle').textContent = title || 'New chat';
+}
+function emptyState() {
+  thread.textContent = '';
+  const e = document.createElement('div'); e.className = 'empty'; e.id = 'empty';
+  e.innerHTML = '<b>Ask Yo-Yo anything</b>Hold the mic or type. Questions, ideas, recipes, what to watch, or \u201cplay Dune on Max\u201d.';
+  thread.appendChild(e);
+}
+const scrollEnd = () => { thread.scrollTop = thread.scrollHeight; };
+function bubble(role, cls) {
+  const em = $('empty'); if (em) em.remove();
+  const b = document.createElement('div'); b.className = 'msg ' + (role === 'user' ? 'me' : 'bot') + (cls ? ' ' + cls : '');
+  thread.appendChild(b); return b;
+}
+function playedChip(pl) {
+  if (!pl || !pl.status) return null;
+  const c = document.createElement('div'), svc = SVC[pl.service] || pl.service || '';
+  if (pl.status === 'playing') { c.className = 'pl'; c.textContent = '\u25b6 Playing' + (pl.title ? ' ' + pl.title : '') + (svc ? ' on ' + svc : ''); }
+  else if (pl.status === 'searching') { c.className = 'pl'; c.textContent = '\ud83d\udd0e Searching YouTube' + (pl.title ? ' \u00b7 ' + pl.title : '') + ' \u00b7 top result'; }
+  else if (pl.status === 'opened_app') { c.className = 'pl open'; c.textContent = 'Opened ' + (svc || 'the app') + (pl.title ? ' \u00b7 ' + pl.title : ''); }
+  else if (pl.status === 'tv_off') { c.className = 'pl no'; c.textContent = 'TV is off'; }
+  else return null;
+  return c;
+}
+// v6.2 "Show on TV": long answers get a button that opens the whole answer in a big panel on the TV (POST /tv/show).
+// It brings Glass Home to the front, i.e. it switches the TV away from what is playing, so the first tap only arms it.
+const TV_SHOW_MIN = 250, TVI = '<svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="12" rx="2"/><path d="M8 21h8M12 17v4"/></svg>';
+function tvButton(b, ref) {   // ref: { messageId } or { index } (answers saved before v6.2 have no id)
+  const k = document.createElement('button'); k.className = 'tvb press'; k.setAttribute('aria-label', 'Show this answer on the TV');
+  const idle = () => { k.classList.remove('arm', 'busy'); k.innerHTML = TVI + '<span>Show on TV</span>'; };
+  let armT = null; idle();
+  k.addEventListener('click', () => {
+    if (k.classList.contains('busy')) return;
+    if (!k.classList.contains('arm')) { k.classList.add('arm'); k.innerHTML = TVI + '<span>Tap again · switches the TV to Home, away from what’s playing</span>'; armT = setTimeout(idle, 4000); return; }
+    clearTimeout(armT); k.classList.remove('arm'); k.classList.add('busy'); k.innerHTML = TVI + '<span>Sending to the TV…</span>';
+    post('/tv/show', Object.assign({ chatId: ref.chatId || chatId }, ref.messageId ? { messageId: ref.messageId } : { index: ref.index })).then(r => {
+      idle();
+      if (r && r.ok) toast(r.launcher === 'front' ? 'On the TV.' : 'Opening Home on the TV' + (r.previous ? ' · OK on the TV goes back to ' + r.previous.name : '') + '.', 3600);
+      else toast(r && r.error === 'tv-off' ? 'The TV is off. Turn it on first.' : r && r.error === 'no-message' ? 'That answer isn’t saved on the Mac any more.' : r && /rest-failed|launch-failed/.test(r.error || '') ? 'Couldn’t switch the TV to Home.' : 'Couldn’t show it on the TV.', 3600);
+    }, () => { idle(); toast('Can’t reach the relay on the Mac.'); });
+  });
+  b.appendChild(k);
+}
+// fills an assistant bubble from an /ask answer or a stored message ({ text, brain, stats, items, played, spoken })
+function fillBot(b, r, live, index) {
+  b.textContent = ''; b.classList.remove('err');
+  const t = r.text || r.message || 'No answer'; if (!r.text) b.classList.add('err');
+  const say = spokenOf(r);
+  if (TTS && say && r.text) {
+    const k = document.createElement('button'); k.className = 'rp press'; k.setAttribute('aria-label', 'Read the answer aloud');
+    k.innerHTML = '<svg viewBox="0 0 24 24"><path d="M4 9.5h3.5L12 5v14l-4.5-4.5H4z"/><path d="M15.5 8.5a5 5 0 0 1 0 7M18.5 5.5a9 9 0 0 1 0 13"/></svg>';
+    k.addEventListener('click', () => { if (TTS.speaking && k.classList.contains('on')) { stopTalk(); return; } if (!$('speak').checked) { $('speak').checked = true; localStorage.setItem('rv.speak', '1'); } unlockTTS(true); talk(say, k); });
+    b.appendChild(k);
+  }
+  b.appendChild(document.createTextNode(t));
+  const pc = playedChip(r.played); if (pc) b.appendChild(pc);
+  const its = (r.items || []).filter(x => x && x.title).slice(0, 4);
+  if (its.length) { const w = document.createElement('div'); w.className = 'its';
+    its.forEach(x => { const sp = document.createElement('span'); sp.textContent = x.title + (x.year ? ' (' + x.year + ')' : '') + (x.imdb ? ' \u00b7 IMDb ' + x.imdb : ''); w.appendChild(sp); }); b.appendChild(w); }
+  const st = r.stats || {};
+  if (live && (r.brain || r.stats)) { const sm = document.createElement('small');
+    sm.textContent = [r.brain || st.brain, st.totalMs != null ? sec(st.totalMs) : null, st.tokens && st.tokens.total != null ? kf(st.tokens.total) + ' tokens' : null, st.fallback ? 'fallback: ' + st.fallback : null].filter(Boolean).join(' \u00b7 ');
+    b.appendChild(sm); }
+  if (r.text && r.brain !== 'error' && r.text.length >= TV_SHOW_MIN && (r.messageId || r.id || index != null))
+    tvButton(b, { chatId: r.chatId, messageId: r.messageId || r.id, index });
+  return say;
+}
+function render(msgs) {
+  thread.textContent = '';
+  if (!msgs || !msgs.length) return emptyState();
+  msgs.forEach((m, i) => { if (m.role === 'user') bubble('user').textContent = m.text; else fillBot(bubble('assistant'), m, false, i); });
+  scrollEnd();
+}
+function loadChat(id) {
+  if (!id) { setChat(null); emptyState(); return Promise.resolve(); }
+  return fetch('/chats/' + encodeURIComponent(id)).then(r => r.ok ? r.json() : null).then(c => {
+    if (!c || !c.id) { setChat(null); emptyState(); return; }
+    setChat(c.id, c.title); render(c.messages);
+  }, () => { emptyState(); });
+}
+function newChat(quiet) {
+  askN++; stopTalk(); if (H) finish(H, 'cancel', true); if (RP) recFinish(RP, 'cancel', true);
+  setChat(null); emptyState(); ui('idle', null, '', true);
+  if (!quiet) toast('New chat', 1200);
+}
+$('newc').addEventListener('click', () => newChat());
+// drawer: list, switch, rename (pencil), delete (tap the bin twice)
+const ago = t => { const s = (Date.now() - t) / 1000; return s < 60 ? 'now' : s < 3600 ? Math.floor(s / 60) + 'm' : s < 86400 ? Math.floor(s / 3600) + 'h' : s < 604800 ? Math.floor(s / 86400) + 'd' : new Date(t).toLocaleDateString(); };
+const PEN = '<svg viewBox="0 0 24 24"><path d="M4 20h4L19 9l-4-4L4 16z"/><path d="M14 6l4 4"/></svg>', BIN = '<svg viewBox="0 0 24 24"><path d="M5 7h14M10 7V5h4v2M7 7l1 13h8l1-13"/></svg>';
+function openDrawer() { $('drawer').hidden = false; refreshList(); }
+function closeDrawer() { $('drawer').hidden = true; }
+function refreshList() {
+  const L = $('clist');
+  return fetch('/chats').then(r => r.json()).then(d => {
+    L.textContent = '';
+    if (!(d.chats || []).length) { const n = document.createElement('div'); n.className = 'cnone'; n.textContent = 'No chats yet.'; L.appendChild(n); return; }
+    d.chats.forEach(c => {
+      const row = document.createElement('div'); row.className = 'crow' + (c.id === chatId ? ' cur' : ''); row.dataset.id = c.id;
+      const m = document.createElement('button'); m.className = 'cm';
+      const t = document.createElement('div'); t.className = 'ct'; t.textContent = c.title;
+      const pv = document.createElement('div'); pv.className = 'cp'; pv.textContent = ago(c.updated) + (c.preview ? ' \u00b7 ' + c.preview : '');
+      m.appendChild(t); m.appendChild(pv); m.addEventListener('click', () => { closeDrawer(); if (c.id !== chatId) { newChat(true); loadChat(c.id); } });
+      const ren = document.createElement('button'); ren.className = 'ca ren press'; ren.setAttribute('aria-label', 'Rename'); ren.innerHTML = PEN;
+      ren.addEventListener('click', () => {
+        const inp = document.createElement('input'); inp.type = 'text'; inp.value = c.title; inp.maxLength = 60; m.replaceWith(inp); inp.focus(); inp.select();
+        let done = false;
+        const save = () => { if (done) return; done = true; const v = inp.value.trim();
+          if (!v || v === c.title) return refreshList();
+          post('/chats/' + c.id + '/rename', { title: v }).then(r => { if (c.id === chatId && r.title) $('ctitle').textContent = r.title; refreshList(); }, () => toast('Can\u2019t reach the relay on the Mac.')); };
+        inp.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); save(); } else if (e.key === 'Escape') { done = true; refreshList(); } });
+        inp.addEventListener('blur', save);
+      });
+      const del = document.createElement('button'); del.className = 'ca del press'; del.setAttribute('aria-label', 'Delete'); del.innerHTML = BIN;
+      let armT = null;
+      del.addEventListener('click', () => {
+        if (!del.classList.contains('arm')) { del.classList.add('arm'); del.textContent = 'Delete'; armT = setTimeout(() => { del.classList.remove('arm'); del.innerHTML = BIN; }, 3000); return; }
+        clearTimeout(armT);
+        post('/chats/' + c.id + '/delete', {}).then(() => { if (c.id === chatId) newChat(true); refreshList(); }, () => toast('Can\u2019t reach the relay on the Mac.'));
+      });
+      row.appendChild(m); row.appendChild(ren); row.appendChild(del); L.appendChild(row);
+    });
+  }, () => { L.textContent = 'Can\u2019t reach the relay on the Mac.'; });
+}
+$('chatsb').addEventListener('click', openDrawer);
+$('dclose').addEventListener('click', closeDrawer);
+$('dnew').addEventListener('click', () => { closeDrawer(); newChat(); });
+$('drawer').addEventListener('click', e => { if (e.target === $('drawer')) closeDrawer(); });
 
 // spoken answers: the iPhone's own voices (free). iOS only lets a page speak after a tap has "unlocked" speech,
 // so the first touch / send tap speaks a silent empty utterance synchronously inside the gesture.
@@ -334,7 +518,8 @@ function unlockTTS(force) {
   try { TTS.cancel(); const u = new SpeechSynthesisUtterance(''); u.volume = 0; TTS.speak(u); ttsReady = true; } catch (e) {}
 }
 function stopTalk() { if (!TTS) return false; const busy = TTS.speaking || TTS.pending; if (busy) TTS.cancel(); setRp(false); return busy; }
-const setRp = on => { const b = document.querySelector('#ans .rp'); if (b) b.classList.toggle('on', !!on); };
+let rpBtn = null;
+const setRp = (on, b) => { if (b) { if (rpBtn && rpBtn !== b) rpBtn.classList.remove('on'); rpBtn = b; } if (rpBtn) rpBtn.classList.toggle('on', !!on); };
 // what to say: the relay's short "spoken" version, else the answer without markdown/emoji, first 2 sentences
 function spokenOf(r) {
   if (r.spoken) return r.spoken;
@@ -342,51 +527,121 @@ function spokenOf(r) {
     .replace(/[\u{1F000}-\u{1FAFF}\u{2600}-\u{27BF}\u{FE0F}\u{200D}\u{2B50}]/gu, '').replace(/\s+([,.!?\u0964])/g, '$1').replace(/\s{2,}/g, ' ').trim();
   return t.split(/(?<=[.!?\u0964])\s+/).slice(0, 2).join(' ');
 }
-function talk(text) {
+function talk(text, btn) {
   if (!TTS || !$('speak').checked || !text) return;
   TTS.cancel();
   const u = utt = new SpeechSynthesisUtterance(text);                       // keep a reference: iOS drops events of GC'd utterances
   u.lang = lang; const v = voiceFor(lang); if (v) u.voice = v; u.rate = 1; u.pitch = 1;
-  u.onstart = () => { if (utt === u) setRp(true); }; u.onend = u.onerror = () => { if (utt === u) setRp(false); };
+  const bt = btn || document.querySelector('#ans .rp'); u.onstart = () => { if (utt === u) setRp(true, bt); }; u.onend = u.onerror = () => { if (utt === u) setRp(false); };
   TTS.speak(u);
 }
-document.addEventListener('visibilitychange', () => { if (document.hidden) { stopTalk(); ttsReady = false; if (H && H.held) holdEnd(true); } });
+document.addEventListener('visibilitychange', () => { if (document.hidden) { stopTalk(); ttsReady = false; if ((H && H.held) || (RP && RP.held)) holdEnd(true); } });
 
-fetch('/status').then(r => r.json()).then(s => { $('brain').textContent = s.mock ? 'mock replay' : s.brain; }, () => {});
+let sttInfo = { engine: 'off' }, sttBroken = false, brainName = '';
+const paintBrain = () => { $('brain').textContent = [brainName, useRec() ? 'speech: ' + sttInfo.engine + ' on the Mac' : SR ? 'speech: on this phone' : ''].filter(Boolean).join(' \u00b7 '); };
+fetch('/status').then(r => r.json()).then(s => { brainName = s.mock ? 'mock replay' : s.brain; if (s.stt) sttInfo = s.stt; paintBrain(); paintMicAvail(); }, () => {});
 const sec = ms => ms == null ? '\u2013' : ms < 1000 ? ms + ' ms' : (ms / 1000).toFixed(1) + ' s';
 const kf = n => n == null ? 'n/a' : n >= 1000 ? (n / 1000).toFixed(1) + 'k' : String(n);
 function ui(state, label, heard, interim) {   // state: idle | listening | cancelling | sending | answer
   document.body.classList.remove('listening', 'cancelling', 'sending'); if (state !== 'idle' && state !== 'answer') document.body.classList.add(state);
   $('ystate').textContent = { idle: 'Yo-Yo', listening: 'Listening', cancelling: 'Release to cancel', sending: 'Sending', answer: 'Answer' }[state];
-  $('micl').textContent = label || { idle: 'Hold to talk', answer: 'Hold to talk', listening: 'Listening…', cancelling: 'Slide back to keep talking', sending: 'Sending…' }[state];
+  $('micl').textContent = label || { idle: 'Hold to talk', answer: 'Hold to talk', listening: 'Listening\u2026', cancelling: 'Slide back to keep talking', sending: 'Sending\u2026' }[state];
   if (heard != null) { $('heard').textContent = heard; $('heard').className = interim ? 'interim' : ''; }
 }
-const MISSED = 'Didn’t catch that, hold and try again.';
+const MISSED = 'Didn\u2019t catch that, hold and try again.';
 let askN = 0;
 function ask(text, sttMs, typed) {
   text = (text || '').trim();
   if (!text) { ui('idle', null, MISSED, true); return; }                    // never send an empty question
   const n = ++askN;
-  ui('sending', null, '\u201c' + text + '\u201d');
-  $('ans').className = 'ans glass on'; $('ans').innerHTML = '<small>Yo-Yo is working… (watch the TV)</small>';
-  post('/ask', { text, sttMs: sttMs || 0, typed: !!typed, client, lang }).then(r => {
-    if (n !== askN || r.superseded) return;
-    const t = r.text || r.message || 'No answer', a = $('ans'); a.textContent = '';
-    const say = spokenOf(r);
-    if (TTS && say && r.text) {
-      const b = document.createElement('button'); b.className = 'rp press'; b.setAttribute('aria-label', 'Read the answer aloud');
-      b.innerHTML = '<svg viewBox="0 0 24 24"><path d="M4 9.5h3.5L12 5v14l-4.5-4.5H4z"/><path d="M15.5 8.5a5 5 0 0 1 0 7M18.5 5.5a9 9 0 0 1 0 13"/></svg>';
-      b.addEventListener('click', () => { if (TTS.speaking) { stopTalk(); return; } if (!$('speak').checked) { $('speak').checked = true; localStorage.setItem('rv.speak', '1'); } unlockTTS(true); talk(say); });
-      a.appendChild(b);
-    }
-    a.appendChild(document.createTextNode(t));
-    if (r.brain || r.stats) { const s = document.createElement('small'); const st = r.stats || {};
-      s.textContent = [r.brain || st.brain, st.totalMs != null ? sec(st.totalMs) : null, st.tokens && st.tokens.total != null ? kf(st.tokens.total) + ' tokens' : null, st.fallback ? 'fallback: ' + st.fallback : null].filter(Boolean).join(' \u00b7 ');
-      a.appendChild(s); }
-    ui('answer'); if (r.text) talk(say);
-  }, () => { if (n !== askN) return; $('ans').textContent = 'Couldn’t reach the relay on the Mac.'; ui('idle'); });
+  ui('sending', null, '', true);
+  bubble('user').textContent = text;
+  const old = $('ans'); if (old) old.removeAttribute('id');
+  const a = bubble('assistant'); a.id = 'ans'; a.innerHTML = '<span class="dots"><i></i><i></i><i></i></span>'; scrollEnd();
+  const q = { text, sttMs: sttMs || 0, typed: !!typed, client, lang };
+  if (chatId) q.chatId = chatId; else q.newChat = true;
+  post('/ask', q).then(r => {
+    if (n !== askN || r.superseded) { if (a.querySelector('.dots')) a.remove(); return; }
+    if (r.chatId) setChat(r.chatId, r.chatTitle || $('ctitle').textContent);
+    const say = fillBot(a, r, true); scrollEnd();
+    ui('answer'); if (r.text) talk(say, a.querySelector('.rp'));
+  }, () => { if (n !== askN) return; a.textContent = 'Couldn\u2019t reach the relay on the Mac.'; a.classList.add('err'); ui('idle'); });
 }
-$('f').onsubmit = e => { e.preventDefault(); unlockTTS(true); const v = $('q').value; $('q').value = ''; $('q').blur(); if (v.trim()) ask(v, 0, true); };
+$('f').onsubmit = e => { e.preventDefault(); unlockTTS(true); const v = $('q').value; $('q').value = ''; $('f').classList.remove('has'); $('q').blur(); if (v.trim()) ask(v, 0, true); };
+$('q').addEventListener('input', () => $('f').classList.toggle('has', !!$('q').value.trim()));
+loadChat(chatId);
+
+// Server speech-to-text (v6): when the relay has an engine (whisper.cpp on the Mac, or Gemini), hold-to-talk records
+// with MediaRecorder and POSTs the audio to /stt; the mic tracks are stopped after every recording. If /stt is off or
+// fails, the phone falls back to the browser's own speech recognition (Web Speech) for the next press.
+const MR = window.MediaRecorder, GUM = navigator.mediaDevices && navigator.mediaDevices.getUserMedia ? navigator.mediaDevices : null;
+function useRec() { return !!(MR && GUM && sttInfo && sttInfo.engine && sttInfo.engine !== 'off' && !sttBroken); }
+let RP = null;
+function pickMime() { const c = ['audio/mp4', 'audio/webm;codecs=opus', 'audio/webm', 'audio/ogg;codecs=opus']; for (let i = 0; i < c.length; i++) { try { if (MR.isTypeSupported && MR.isTypeSupported(c[i])) return c[i]; } catch (e) {} } return ''; }
+const stopTracks = p => { if (p.stream) { try { p.stream.getTracks().forEach(t => t.stop()); } catch (e) {} p.stream = null; } };
+function recStart() {
+  if (H) finish(H, 'cancel', true); if (RP) recFinish(RP, 'cancel', true);
+  const p = RP = { kind: 'rec', id: ++pressN, held: true, cancel: false, t0: Date.now(), chunks: [], done: false, rec: null, stream: null };
+  ui('listening', null, 'Listening\u2026', true);
+  post('/listening').catch(() => {});
+  const go = () => GUM.getUserMedia({ audio: { channelCount: 1, echoCancellation: true, noiseSuppression: true } }).then(st => {
+    p.stream = st;
+    if (p.done || RP !== p) return stopTracks(p);
+    if (!p.held) return recFinish(p, p.cancel ? 'cancel' : 'tap');           // released before the mic was ready
+    const mt = pickMime(); let r;
+    try { r = p.rec = mt ? new MR(st, { mimeType: mt }) : new MR(st); } catch (e) { stopTracks(p); return recFinish(p, 'error'); }
+    r.ondataavailable = e => { if (e.data && e.data.size) p.chunks.push(e.data); };
+    r.onstop = () => { stopTracks(p); const f = p.after; p.after = null; if (f) f(); };
+    r.start(); p.recT0 = Date.now();
+    const max = (sttInfo.maxSec || 30) * 1000;
+    p.tick = setInterval(() => { if (p.held && !p.cancel) { const s = Math.floor((Date.now() - p.recT0) / 1000); $('micl').textContent = 'Recording 0:' + (s < 10 ? '0' : '') + s + ' \u00b7 release to send'; } }, 250);
+    p.maxT = setTimeout(() => { if (p.held) { toast('That\u2019s the longest recording I take, sending it now.', 2000); recEnd(false); } }, max - 300);
+  }, err => { stopTracks(p); recFinish(p, err && (err.name === 'NotAllowedError' || err.name === 'SecurityError') ? 'denied' : 'nomic'); });
+  if (stopTalk()) setTimeout(() => { if (RP === p && !p.done) go(); }, 250); else go();
+}
+function recEnd(cancelled) {
+  const p = RP; if (!p || !p.held) return;
+  p.held = false;
+  if (cancelled || p.cancel) return recFinish(p, 'cancel');
+  if (!p.rec) return;                                                       // still waiting for the mic; handled there
+  if (Date.now() - p.recT0 < 450) return recFinish(p, 'tap');
+  ui('sending', 'Transcribing\u2026', 'Transcribing\u2026', true);
+  p.after = () => upload(p);
+  try { p.rec.stop(); } catch (e) { recFinish(p, 'error'); }
+}
+function recFinish(p, why, silent) {
+  if (p.done) return; p.done = true; clearInterval(p.tick); clearTimeout(p.maxT); p.after = null;
+  if (p.rec && p.rec.state !== 'inactive') { try { p.rec.stop(); } catch (e) {} }
+  stopTracks(p); if (RP === p) RP = null;
+  if (silent) return;
+  const stop = w => post('/listening', w ? { stop: 1, why: w } : { stop: 1 }).catch(() => {});
+  if (why === 'cancel') { stop(); ui('idle', null, 'Cancelled', true); return; }
+  if (why === 'tap') { stop(); ui('idle', null, 'Keep holding the button while you speak.', true); return; }
+  if (why === 'denied') { stop('mic denied'); ui('idle', null, 'Microphone access is off. Allow it in Settings \u203a Safari \u203a Microphone, then reopen. Typing works too.', true); return; }
+  stop(why === 'nomic' ? 'no microphone' : 'recorder ' + why); ui('idle', null, 'The microphone didn\u2019t start. Try again, or type below.', true);
+}
+function sttFallback(msg) {
+  sttBroken = true; paintBrain();
+  ui('idle', null, (msg || 'Speech-to-text on the Mac isn\u2019t available.') + (SR ? ' Switched to the phone\u2019s own recognition: hold again.' : ' Type below for now.'), true);
+}
+function upload(p) {
+  if (p.done) return;
+  const secs = (Date.now() - p.recT0) / 1000, type = (p.rec && p.rec.mimeType) || (p.chunks[0] && p.chunks[0].type) || 'audio/mp4';
+  const blob = new Blob(p.chunks, { type });
+  p.done = true; clearInterval(p.tick); clearTimeout(p.maxT); if (RP === p) RP = null;
+  const stop = w => post('/listening', w ? { stop: 1, why: w } : { stop: 1 }).catch(() => {});
+  if (!blob.size) { stop('empty recording'); ui('idle', null, MISSED, true); return; }
+  fetch('/stt?lang=' + encodeURIComponent(lang) + '&sec=' + secs.toFixed(1), { method: 'POST', headers: { 'Content-Type': type }, body: blob })
+    .then(r => r.json().then(j => [r.status, j], () => [r.status, {}]))
+    .then(([code, j]) => {
+      if (code === 200 && j.text && j.text.trim()) { lastStt = j.engine; ask(j.text, Math.round(secs * 1000)); return; }
+      if (code === 200 || code === 422) { stop('no words (' + (j.engine || 'stt') + ')'); ui('idle', null, MISSED, true); return; }
+      if (code === 413) { stop(); ui('idle', null, 'That recording was too long. Keep it under ' + (sttInfo.maxSec || 30) + ' seconds.', true); return; }
+      if (code === 429) { stop(); ui('idle', null, j.error === 'slow down' ? 'One moment, then hold again.' : (j.error || 'Speech-to-text limit reached for today.'), true); if (j.error !== 'slow down') sttFallback(j.error); return; }
+      stop('stt ' + code); sttFallback(j.error);
+    }, () => { stop('stt unreachable'); sttFallback('Couldn\u2019t reach speech-to-text on the Mac.'); });
+}
+let lastStt = '';
 
 // Hold-to-talk. Every press gets its own id and a fresh SpeechRecognition (Safari refuses reuse). Callbacks are only
 // honoured for the CURRENT press's current instance (late 'aborted' errors / results / ends of old instances are
@@ -399,10 +654,12 @@ $('f').onsubmit = e => { e.preventDefault(); unlockTTS(true); const v = $('q').v
 const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
 const mic = $('mic'), MAX_RESTARTS = 3, FINAL_WAIT = 1200, CLOSE_WAIT = 700;
 let H = null, lastTx = 0, pressN = 0, recN = 0, closing = null, srCont = localStorage.getItem('rv.srcont') !== '0';
-if (!SR) { mic.style.opacity = .45; $('micl').textContent = 'Type below'; $('heard').textContent = 'Speech recognition isn’t available in this browser. Safari on iPhone supports it; typing works everywhere.'; }
+function paintMicAvail() { const can = SR || useRec(); mic.style.opacity = can ? '' : .45; if (!can) { $('micl').textContent = 'Type below'; $('heard').textContent = 'Voice needs Safari on iPhone (or speech-to-text on the Mac). Typing works everywhere.'; } }
+paintMicAvail();
 const join = (a, b) => (a && b ? a.trim() + ' ' + b.trim() : (a || b || '')).trim();
 const heardNow = h => join(h.acc, join(h.sessFinal, h.interim));
 function holdStart() {
+  if (useRec()) return recStart();
   if (!SR) { toast('Speech recognition isn’t available here. Type instead.'); return; }
   if (H) finish(H, 'cancel', true);
   const h = H = { id: ++pressN, held: true, cancel: false, acc: '', sessFinal: '', interim: '', restarts: 0, t0: Date.now(), rec: null, done: false, err: null, results: 0, cont: srCont, diag: [] };
@@ -458,6 +715,7 @@ function startRec(h) {
   try { r.start(); } catch (e) { d('start-threw'); h.err = 'start'; h.rec = null; r._ended = true; if (++h.restarts <= MAX_RESTARTS) setTimeout(() => { if (h.held && !h.done && H === h) startRec(h); }, 250); }
 }
 function holdEnd(cancelled) {
+  if (RP) return recEnd(cancelled);
   const h = H; if (!h || !h.held) return;
   h.held = false;
   if (cancelled || h.cancel) return finish(h, 'cancel');
@@ -486,7 +744,7 @@ function finish(h, why, silent) {
   ask(text, Date.now() - h.t0);
 }
 function outside(x, y) { const b = mic.getBoundingClientRect(), m = 56; return x < b.left - m || x > b.right + m || y < b.top - m || y > b.bottom + m; }
-function track(x, y) { const h = H; if (!h || !h.held) return; const c = outside(x, y); if (c !== h.cancel) { h.cancel = c; ui(c ? 'cancelling' : 'listening', null, heardNow(h) || '\u2026', true); } }
+function track(x, y) { const h = H || RP; if (!h || !h.held) return; const c = outside(x, y); if (c !== h.cancel) { h.cancel = c; ui(c ? 'cancelling' : 'listening', null, (h.kind === 'rec' ? 'Listening\u2026' : heardNow(h)) || '\u2026', true); } }
 let touchId = null;
 mic.addEventListener('touchstart', e => {
   e.preventDefault();
@@ -495,13 +753,13 @@ mic.addEventListener('touchstart', e => {
 }, { passive: false });
 mic.addEventListener('touchmove', e => { e.preventDefault(); for (const t of e.changedTouches) if (t.identifier === touchId) track(t.clientX, t.clientY); }, { passive: false });
 mic.addEventListener('touchend', e => { e.preventDefault(); for (const t of e.changedTouches) if (t.identifier === touchId) { touchId = null; track(t.clientX, t.clientY); holdEnd(false); } }, { passive: false });
-mic.addEventListener('touchcancel', e => { touchId = null; const h = H; if (h && h.held) { h.held = false; finish(h, 'cancel', true); post('/listening', { stop: 1 }).catch(() => {}); ui('idle', null, 'Hold again to talk.', true); } });
+mic.addEventListener('touchcancel', e => { touchId = null; if (RP && RP.held) { recFinish(RP, 'cancel', true); post('/listening', { stop: 1 }).catch(() => {}); ui('idle', null, 'Hold again to talk.', true); return; } const h = H; if (h && h.held) { h.held = false; finish(h, 'cancel', true); post('/listening', { stop: 1 }).catch(() => {}); ui('idle', null, 'Hold again to talk.', true); } });
 // mouse fallback (desktop browsers)
 let mouse = false;
 mic.addEventListener('mousedown', e => { if (e.button) return; e.preventDefault(); mouse = true; unlockTTS(false); holdStart(); });
 window.addEventListener('mousemove', e => { if (mouse) track(e.clientX, e.clientY); });
 window.addEventListener('mouseup', () => { if (mouse) { mouse = false; holdEnd(false); } });
-window.addEventListener('blur', () => { if (H && H.held) holdEnd(true); });
-window.RV = { state: () => H && { id: H.id, held: H.held, cancel: H.cancel, restarts: H.restarts, text: heardNow(H), diag: H.diag.slice() }, tab, lang: () => lang, voice: () => { const v = voiceFor(lang); return v && v.name; }, spokenOf };   // tests/preview
+window.addEventListener('blur', () => { if ((H && H.held) || (RP && RP.held)) holdEnd(true); });
+window.RV = { chat: () => chatId, rec: () => RP && { held: RP.held, recording: !!RP.rec, chunks: RP.chunks.length }, stt: () => ({ use: useRec(), broken: sttBroken, last: lastStt }), state: () => H && { id: H.id, held: H.held, cancel: H.cancel, restarts: H.restarts, text: heardNow(H), diag: H.diag.slice() }, tab, lang: () => lang, voice: () => { const v = voiceFor(lang); return v && v.name; }, spokenOf };   // tests/preview
 })();
 </script></body></html>

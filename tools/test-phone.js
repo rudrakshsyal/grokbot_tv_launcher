@@ -53,8 +53,8 @@ const FAKE_SR = () => {
 (async () => {
   const TV = await FAKE.start({ allowDelay: 60 });
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'phone-'));
-  Object.assign(process.env, { MOCK: '1', MOCK_SLOW: '0.3', LOG: '0', TV_IP: '127.0.0.1', TV_WS_PORT: String(TV.wsPort), TV_REST_PORT: String(TV.restPort), TV_TOKEN_FILE: path.join(tmp, 'tv-token.json'), TV_MAC: '' });
-  const relay = require('../relay/server');
+  Object.assign(process.env, { CHATS_DIR: path.join(tmp, 'chats'), DATA_DIR: path.join(tmp, 'data'), METRICS_DIR: path.join(tmp, 'metrics'), STT: 'off', MOCK: '1', MOCK_SLOW: '0.3', LOG: '0', TV_IP: '127.0.0.1', TV_WS_PORT: String(TV.wsPort), TV_REST_PORT: String(TV.restPort), TV_TOKEN_FILE: path.join(tmp, 'tv-token.json'), TV_MAC: '' });
+  const relay = require('../relay/server'), CH = require('../relay/chats');
   await new Promise(r => relay.server.listen(0, '127.0.0.1', r));
   const R = 'http://127.0.0.1:' + relay.server.address().port;
   const browser = await pw.chromium.launch({ executablePath: process.env.CHROME || '/usr/bin/google-chrome', args: ['--force-color-profile=srgb'] });
@@ -189,10 +189,37 @@ const FAKE_SR = () => {
   await page.reload(); await page.waitForSelector('#mic');
   ok(!(await page.evaluate(() => document.getElementById('speak').checked)), 'turning "Speak answers" off is remembered');
   await page.locator('#speak').evaluate(el => { el.checked = true; el.dispatchEvent(new Event('change')); });
-  // New chat
+  // ---- chats (v6) ----
+  ok(asks.every(a => a.newChat === true && !a.chatId && a.client === asks[0].client && /^p[a-z0-9]+$/.test(a.client)), 'asks carry the stable phone id; with no chat yet they ask for a new chat');
+  answerBody = { type: 'answer', text: 'Playing Innerbloom.', brain: 'gemini', chatId: 'cabc123def45', chatTitle: 'Music', played: { status: 'playing', service: 'youtube', title: 'RÜFÜS DU SOL - Innerbloom' }, stats: {} };
+  await page.fill('#q', 'play some rufus du sol on youtube'); await page.locator('.go').tap(); const nC = asks.length; await wait(300);
+  ok(await lsGet('rv.chat') === 'cabc123def45' && await txt('ctitle') === 'Music' && /Playing RÜFÜS DU SOL - Innerbloom on YouTube/.test(await page.locator('#ans .pl').textContent()), 'answer sets the chat id + title; played chip shown');
+  await page.fill('#q', 'another one'); await page.locator('.go').tap(); await untilAsks(nC + 1);
+  ok(asks[nC].chatId === 'cabc123def45' && !asks[nC].newChat, 'next ask sends chatId');
+  ok(await page.locator('#thread .msg.me').count() === 2 && await page.locator('#thread .msg.bot').count() === 2 && /another one/.test(await page.locator('#thread .msg.me').last().textContent()), 'questions and answers show as chat bubbles');
   hits.length = 0; await page.locator('#newc').tap(); await wait(300);
-  ok(hits.some(h => /^\/chat\/reset \{"client":"[^"]+"\}/.test(h)) && /New chat/.test(await txt('heard')), 'New chat -> POST /chat/reset with this phone id');
+  ok(await lsGet('rv.chat') === null && await txt('ctitle') === 'New chat' && await page.locator('#thread .msg').count() === 0 && await page.locator('#empty').count() === 1, 'New chat clears the thread (chat is created lazily by the next /ask)');
   answerBody = null;
+  // drawer against the real relay chat store
+  const c1 = CH.create({ client: 'x' }); CH.addMessage(c1, { role: 'user', text: 'what is a quick dinner with chicken and rice' }); CH.addMessage(c1, { role: 'assistant', text: 'Chicken fried rice: 20 minutes.', brain: 'gemini' });
+  const c2 = CH.create({ client: 'x' }); CH.addMessage(c2, { role: 'user', text: 'play breaking bad on netflix' }); CH.addMessage(c2, { role: 'assistant', text: 'Playing Breaking Bad on Netflix.', played: { status: 'playing', service: 'netflix', title: 'Breaking Bad' } });
+  await page.locator('#chatsb').tap(); await page.waitForSelector('.crow');
+  const rows = await page.locator('.crow .ct').allTextContents();
+  ok(rows[0] === 'Play breaking bad on netflix' && rows[1] === CH.get(c1.id).title, 'drawer lists chats newest first (' + rows.join(' | ') + ')');
+  await page.locator('.crow[data-id="' + c1.id + '"] .cm').tap(); await wait(400);
+  ok(await page.evaluate(() => document.getElementById('drawer').hidden) && await txt('ctitle') === CH.get(c1.id).title && await page.locator('#thread .msg').count() === 2 && await lsGet('rv.chat') === c1.id, 'tapping a chat opens it with its history');
+  await page.reload(); await page.waitForSelector('#thread .msg');
+  ok(await page.locator('#thread .msg').count() === 2 && /Chicken fried rice/.test(await page.locator('#thread .msg.bot').first().textContent()), 'current chat reloads from the relay after a page reload');
+  await page.locator('#chatsb').tap(); await page.waitForSelector('.crow');
+  await page.locator('.crow[data-id="' + c1.id + '"] .ren').tap(); await page.locator('.crow input').fill('Dinner'); await page.locator('.crow input').press('Enter'); await wait(400);
+  ok(CH.get(c1.id).title === 'Dinner' && await txt('ctitle') === 'Dinner' && (await page.locator('.crow .ct').allTextContents()).indexOf('Dinner') >= 0, 'rename from the drawer');
+  await page.locator('.crow[data-id="' + c2.id + '"] .del').tap(); await wait(150);
+  ok(CH.get(c2.id) && /Delete/.test(await page.locator('.crow[data-id="' + c2.id + '"] .del').textContent()), 'first tap on the bin only arms delete');
+  await page.locator('.crow[data-id="' + c2.id + '"] .del').tap(); await wait(400);
+  ok(!CH.get(c2.id) && await page.locator('.crow[data-id="' + c2.id + '"]').count() === 0, 'second tap deletes the chat');
+  await page.locator('.crow[data-id="' + c1.id + '"] .del').tap(); await page.locator('.crow[data-id="' + c1.id + '"] .del').tap(); await wait(400);
+  ok(!CH.get(c1.id) && await lsGet('rv.chat') === null && await page.locator('#thread .msg').count() === 0, 'deleting the open chat starts a new one');
+  await page.locator('#dclose').tap();
 
   // ---- remote tab ----
   await page.locator('[data-v="remote"]').tap(); await wait(300);
@@ -226,7 +253,7 @@ const FAKE_SR = () => {
   await page.waitForSelector('.app'); const names = await page.locator('.app').allTextContents();
   ok(names[0] === 'Glass Home' && names.indexOf('Netflix') > 0 && names.indexOf('HBO Max') > 0, 'quick launch lists Glass Home + dock apps: ' + names.join(', '));
   await page.locator('.app', { hasText: 'Netflix' }).tap(); await wait(300);
-  ok(TV.rest.calls.some(c => /applications\/org\.tizen\.netflix-app/.test(c)), 'Netflix chip -> REST launch org.tizen.netflix-app');
+  ok(TV.rest.calls.some(c => /applications\/(3201907018807|org\.tizen\.netflix-app)/.test(c)), 'Netflix chip -> REST launch (numeric store id 3201907018807)');
   await page.locator('.app', { hasText: 'Glass Home' }).tap(); await wait(300);
   ok(TV.rest.calls.some(c => /applications\/GlassHome1\.launcher/.test(c)), 'Glass Home chip -> GlassHome1.launcher');
   await page.locator('#pwr').tap(); await wait(400);
@@ -255,7 +282,6 @@ const FAKE_SR = () => {
     await page.locator('[data-v="home"]').tap(); await wait(500);
     await page.screenshot({ path: path.join(ROOT, 'preview-remote-home.png') });
     await page.locator('[data-v="yoyo"]').tap(); await wait(400);
-    await page.evaluate(() => { document.getElementById('ans').className = 'ans glass'; });
     await plan([{ words: ['something', 'funny', 'under', 'two', 'hours', 'on', 'Netflix'] }]);
     await touch('touchStart', cx, cy); await wait(1000);
     await page.screenshot({ path: path.join(ROOT, 'preview-remote-yoyo.png') });
@@ -263,6 +289,103 @@ const FAKE_SR = () => {
     await page.waitForFunction(() => document.getElementById('ystate').textContent === 'Answer', null, { timeout: 30000 }).catch(() => {});
     await wait(300); await page.screenshot({ path: path.join(ROOT, 'preview-remote-yoyo-answer.png') });
     console.log('previews: preview-remote-pairing.png, preview-remote-denied.png, preview-remote-remote.png, preview-remote-yoyo.png (holding), preview-remote-yoyo-answer.png, preview-remote-home.png');
+  }
+  // ---- server speech-to-text: MediaRecorder -> POST /stt, then fallback to Web Speech ----
+  const ctx2 = await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true });
+  await ctx2.addInitScript(FAKE_SR);
+  await ctx2.addInitScript(() => {
+    window.__mr = { starts: 0, stops: 0, tracksStopped: 0, gum: 0, deny: false };
+    navigator.mediaDevices.getUserMedia = c => { __mr.gum++; if (__mr.deny) return Promise.reject(Object.assign(new Error('no'), { name: 'NotAllowedError' }));
+      return Promise.resolve({ getTracks: () => [{ stop: () => __mr.tracksStopped++ }] }); };
+    window.MediaRecorder = class { constructor(s, o) { this.mimeType = (o && o.mimeType) || 'audio/mp4'; this.state = 'inactive'; }
+      static isTypeSupported(t) { return t === 'audio/mp4'; }
+      start() { this.state = 'recording'; __mr.starts++; }
+      stop() { if (this.state === 'inactive') return; this.state = 'inactive'; __mr.stops++; setTimeout(() => { this.ondataavailable && this.ondataavailable({ data: new Blob([new Uint8Array(3000)], { type: this.mimeType }) }); this.onstop && this.onstop(); }, 30); } };
+  });
+  const p2 = await ctx2.newPage(), cdp2 = await ctx2.newCDPSession(p2); p2.on('pageerror', e => errors.push('p2: ' + e));
+  let sttReply = { code: 200, body: { text: 'play dune on max', engine: 'whisper', ms: 800 } }; const sttReqs = [], asks2 = [];
+  await p2.route('**/status', r => r.fulfill({ contentType: 'application/json', body: JSON.stringify({ ok: true, brain: 'test brain', stt: { engine: 'whisper', maxSec: 30, maxBytes: 4e6 } }) }));
+  await p2.route('**/stt?*', r => { sttReqs.push({ url: r.request().url(), type: r.request().headers()['content-type'], size: (r.request().postDataBuffer() || []).length });
+    r.fulfill({ status: sttReply.code, contentType: 'application/json', body: JSON.stringify(sttReply.body) }); });
+  await p2.route('**/ask', r => { asks2.push(JSON.parse(r.request().postData())); r.fulfill({ contentType: 'application/json', body: JSON.stringify({ type: 'answer', text: 'Okay.', brain: 'built-in', stats: {} }) }); });
+  await p2.goto(R + '/?tab=yoyo'); await wait(400);
+  const b2 = await p2.locator('#mic').boundingBox(), x2 = b2.x + b2.width / 2, y2 = b2.y + b2.height / 2;
+  const t2 = (type, x, y) => cdp2.send('Input.dispatchTouchEvent', { type, touchPoints: type === 'touchEnd' ? [] : [{ x, y, id: 1 }] });
+  const hold2 = async ms => { await t2('touchStart', x2, y2); await wait(ms); await t2('touchEnd'); };
+  ok(await p2.evaluate(() => RV.stt().use) && /speech: whisper on the Mac/.test(await p2.locator('#brain').textContent()), 'relay has an STT engine -> recorder mode');
+  await hold2(900); for (let i = 0; i < 40 && !asks2.length; i++) await wait(50);
+  const mr = await p2.evaluate(() => __mr), q2 = sttReqs[0] && new URL(sttReqs[0].url);
+  ok(sttReqs.length === 1 && sttReqs[0].type === 'audio/mp4' && sttReqs[0].size === 3000 && q2.searchParams.get('lang') === 'en-US' && +q2.searchParams.get('sec') > 0.5, 'hold -> MediaRecorder audio/mp4 POSTed to /stt?lang&sec');
+  ok(asks2[0] && asks2[0].text === 'play dune on max' && asks2[0].sttMs > 500, 'transcript sent to /ask');
+  ok(mr.gum === 1 && mr.tracksStopped === 1 && (await p2.evaluate(() => (__sr.created))) === 0, 'mic tracks stopped after the recording; Web Speech not used');
+  await hold2(200); await wait(200);
+  ok(/Keep holding/.test(await p2.locator('#heard').textContent()) && sttReqs.length === 1 && (await p2.evaluate(() => __mr.tracksStopped)) === 2, 'quick tap -> nothing uploaded, mic released');
+  sttReply = { code: 422, body: { error: 'No speech heard.', engine: 'whisper' } }; await hold2(800); await wait(400);
+  ok(/Didn.t catch that/.test(await p2.locator('#heard').textContent()) && asks2.length === 1 && await p2.evaluate(() => RV.stt().use), '422 no speech -> try again, stays on recorder');
+  sttReply = { code: 503, body: { error: 'Speech-to-text is off on the relay.' } }; await hold2(800); await wait(400);
+  ok(/Switched to the phone.s own recognition/.test(await p2.locator('#heard').textContent()) && !(await p2.evaluate(() => RV.stt().use)), '/stt 503 -> falls back to Web Speech');
+  await hold2(900); for (let i = 0; i < 40 && asks2.length < 2; i++) await wait(50);
+  ok(asks2[1] && asks2[1].text === 'something funny on Netflix' && sttReqs.length === 3, 'next press uses Web Speech');
+  // power -> Wake-on-LAN hint when the TV stays off
+  await p2.evaluate(() => localStorage.setItem('rv.wakewait', '200'));
+  await p2.route('**/remote/power', r => r.fulfill({ contentType: 'application/json', body: JSON.stringify({ ok: true, via: 'wol', sent: 6, hint: 'If the TV doesn\u2019t turn on, enable Settings \u203a General \u203a Network \u203a Expert Settings \u203a Power On with Mobile on the TV.' }) }));
+  await p2.route('**/remote/status', r => r.fulfill({ contentType: 'application/json', body: JSON.stringify({ state: 'offline', power: 'off', paired: true }) }));
+  await p2.locator('#pwr').tap(); await wait(700);
+  ok(/Power On with Mobile/.test(await p2.locator('#toast').textContent()), 'power via WoL -> "Power On with Mobile" hint if the TV stays off');
+  await ctx2.close();
+
+  // ---- v6.2 "Show on TV" (real relay + fake TV: Netflix on screen, Home not running) ----
+  {
+    const LONG = 'Three good picks for tonight. **Severance** (Apple TV+) is a sharp, strange workplace thriller and season two pays off. ' +
+      '**The Bear** (Hulu) is short, loud and great. **Slow Horses** (Apple TV+) is a funny spy show with Gary Oldman, six episodes a season. Start with Severance if you want something to binge.';
+    const sc = CH.create({ client: 'test' });
+    CH.addMessage(sc, { role: 'user', text: 'What should I watch tonight?' });
+    const lm = CH.addMessage(sc, { role: 'assistant', text: LONG, brain: 'gemini', items: [{ title: 'Severance', year: 2022, imdb: '8.7' }] });
+    CH.addMessage(sc, { role: 'user', text: 'thanks' }); CH.addMessage(sc, { role: 'assistant', text: 'Enjoy!' });
+    const legacy = CH.create({ client: 'test' }); CH.addMessage(legacy, { role: 'user', text: 'old question' }); CH.addMessage(legacy, { role: 'assistant', text: LONG });
+    legacy.messages.forEach(m => { delete m.id; }); CH.save(legacy);   // saved before v6.2: no message ids
+    const DOCKAPPS = require('../relay/dock-apps').load(), NF = DOCKAPPS.apps.find(a => a.key === 'netflix').appId;
+    Object.keys(TV.running).forEach(k => TV.running[k] = false); TV.running[NF] = true;
+    await page.evaluate(id => localStorage.setItem('rv.chat', id), sc.id); await page.goto(R + '/?tab=yoyo'); await page.waitForSelector('#thread .msg'); await wait(500);
+    ok(await page.locator('#thread .msg.bot .tvb').count() === 1, 'Show on TV: only on the long assistant answer (>= 250 chars)');
+    const tvb = page.locator('#thread .msg.bot .tvb').first(); hits.length = 0;
+    await tvb.tap(); await wait(150);
+    ok(/away from what.s playing/.test(await tvb.textContent()) && !hits.some(h => /\/tv\/show/.test(h)), 'first tap only arms it and says it switches the TV away from what is playing');
+    if (PREVIEW) await page.screenshot({ path: path.join(ROOT, 'preview-v62-phone.png') });
+    await tvb.tap(); await wait(900);
+    const h = hits.find(x => /^\/tv\/show /.test(x));
+    ok(h && JSON.parse(h.slice(9)).messageId === lm.id && JSON.parse(h.slice(9)).chatId === sc.id, 'second tap -> POST /tv/show { chatId, messageId }');
+    ok(/Opening Home on the TV.*back to Netflix/.test(await page.locator('#toast').textContent()), 'toast: Home opened, OK on the TV goes back to Netflix (' + await page.locator('#toast').textContent() + ')');
+    ok(TV.running['GlassHome1.launcher'] === true, 'fake TV: Glass Home launched');
+    ok(/Show on TV/.test(await tvb.textContent()), 'button resets after sending');
+    await page.evaluate(id => localStorage.setItem('rv.chat', id), legacy.id); await page.goto(R + '/?tab=yoyo'); await page.waitForSelector('#thread .msg .tvb'); hits.length = 0;
+    const lb = page.locator('#thread .msg.bot .tvb').first(); await lb.tap(); await wait(100); await lb.tap(); await wait(900);
+    const h2 = hits.find(x => /^\/tv\/show /.test(x));
+    ok(h2 && JSON.parse(h2.slice(9)).index === 1 && !JSON.parse(h2.slice(9)).messageId, 'answers saved before v6.2 send their index instead');
+    ok(/On the TV/.test(await page.locator('#toast').textContent()), 'Home already in front -> "On the TV."');
+    await page.evaluate(() => localStorage.removeItem('rv.chat'));
+  }
+
+  if (PREVIEW) {   // v6 chat previews (the real relay chat store)
+    const pc = CH.create({ client: 'preview' });
+    [['user', 'What can I make for dinner with chicken, rice and some spinach?'],
+     ['assistant', 'Try a one-pan garlic chicken and spinach rice: brown the chicken, toast the rice in the same pan, add stock, then fold in the spinach for the last two minutes. About 30 minutes.', { brain: 'gemini' }],
+     ['user', 'Play some RÜFÜS DU SOL on YouTube'],
+     ['assistant', 'Playing RÜFÜS DU SOL \u2013 Innerbloom on YouTube.', { played: { status: 'playing', service: 'youtube', title: 'RÜFÜS DU SOL - Innerbloom' } }],
+     ['user', 'Is Dune Part Two on any of my services?'],
+     ['assistant', 'Yes, Dune: Part Two is on Max. Want me to start it?', { items: [{ title: 'Dune: Part Two', year: 2024, imdb: '8.5' }] }]].forEach(m => CH.addMessage(pc, Object.assign({ role: m[0], text: m[1] }, m[2] || {})));
+    CH.rename(pc.id, 'Dinner, music & Dune');
+    const c3 = CH.create({ client: 'preview' }); CH.addMessage(c3, { role: 'user', text: 'Explain how noise cancelling headphones work' }); CH.addMessage(c3, { role: 'assistant', text: 'They listen to outside sound and play the inverse wave.' });
+    const c4 = CH.create({ client: 'preview' }); CH.addMessage(c4, { role: 'user', text: 'Weekend trip ideas near the coast' });
+    CH.save(Object.assign(pc, { updated: Date.now() + 1000 }));
+    await page.evaluate(id => localStorage.setItem('rv.chat', id), pc.id); await page.goto(R + '/?tab=yoyo'); await page.waitForSelector('#thread .msg'); await wait(900);
+    await page.screenshot({ path: path.join(ROOT, 'preview-v6-chat.png') });
+    await page.locator('#chatsb').tap(); await page.waitForSelector('.crow'); await wait(500);
+    await page.screenshot({ path: path.join(ROOT, 'preview-v6-chats.png') });
+    await page.locator('#dclose').tap(); await wait(200);
+    await plan([{ words: ['what', 'should', 'I', 'watch', 'tonight'] }]); await touch('touchStart', cx, cy); await wait(900);
+    await page.screenshot({ path: path.join(ROOT, 'preview-v6-listening.png') }); await touch('touchMove', cx, cy - 260); await touch('touchEnd'); await wait(200);
+    console.log('previews: preview-v6-chat.png, preview-v6-chats.png, preview-v6-listening.png');
   }
   await browser.close(); relay.tv.close(); relay.server.close(); TV.close(); fs.rmSync(tmp, { recursive: true, force: true });
   console.log(pass + '/' + (pass + fail) + ' phone tests passed'); process.exit(fail ? 1 : 0);

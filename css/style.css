@@ -712,3 +712,64 @@ body.voice-on #rows, body.voice-on .discover, body.voice-on .amb, body.voice-on 
   background: rgba(255,255,255,.18); color: #fff; box-shadow: inset 0 0 0 1px rgba(255,255,255,.22); }
 .saver-on .hint, .saver-on .toast { opacity: 0 !important; }
 .reduce-motion .sv-img { animation: none !important; }
+
+/* ---------------- v6.2 Yo-Yo corner card + "Show on TV" panel (js/tvcard.js) ----------------
+ * Same baked glass as the rest (.glass + RH_Wallpaper.addGlass -> the night tint follows body.night automatically).
+ * The card never takes focus and never hides the home rows; only opacity/transform animate. */
+.yc { position: absolute; right: 72px; bottom: 72px; width: 560px; box-sizing: border-box; padding: 22px 28px 20px; border-radius: 26px; z-index: 58;
+  opacity: 0; visibility: hidden; transform: translate3d(0, 24px, 0); transition: opacity .35s ease, transform .35s ease, visibility 0s linear .35s; }
+.yc.on { opacity: 1; visibility: visible; transform: translate3d(0, 0, 0); transition: opacity .35s ease, transform .35s ease; }
+.yc.yc-out { transition: opacity .8s ease, transform .8s ease, visibility 0s linear .8s; }
+.yc-h { position: relative; height: 40px; line-height: 40px; padding-left: 54px; font-size: 19px; letter-spacing: .12em; color: rgba(255,255,255,.6); }
+.yc-h b { font-weight: 600; text-transform: uppercase; color: rgba(255,255,255,.78); }
+.yc-st { margin-left: 14px; letter-spacing: .02em; color: rgba(255,255,255,.55); }
+.yc-orb { position: absolute; left: 0; top: 2px; width: 36px; height: 36px; border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, #fff 0%, #cfd8ff 12%, #7d8cff 35%, #3a2a9a 62%, #120c2e 100%);
+  box-shadow: 0 0 22px 4px rgba(120,130,255,.45), inset -3px -5px 9px rgba(0,0,0,.45);
+  -webkit-animation: vxBreath 4.2s ease-in-out infinite; animation: vxBreath 4.2s ease-in-out infinite; will-change: transform; }
+.yc-orb i { position: absolute; left: -6px; top: -6px; width: 44px; height: 44px; border-radius: 50%; border: 1.5px solid rgba(190,200,255,.4); box-sizing: border-box;
+  -webkit-animation: vxRing 4.2s ease-in-out infinite; animation: vxRing 4.2s ease-in-out infinite; }
+.yc-listening .yc-orb, .yc-listening .yc-orb i { -webkit-animation-duration: .9s; animation-duration: .9s; }
+.yc-thinking .yc-orb, .yc-thinking .yc-orb i { -webkit-animation-duration: 1.6s; animation-duration: 1.6s; }
+.yc-answering .yc-orb { box-shadow: 0 0 30px 8px rgba(150,120,255,.6), inset -3px -5px 9px rgba(0,0,0,.45); }
+.yc-done .yc-orb, .yc-done .yc-orb i, .yc-error .yc-orb, .yc-error .yc-orb i, .yp .yc-orb, .yp .yc-orb i { -webkit-animation: none; animation: none; }
+.yc-error .yc-orb { background: radial-gradient(circle at 35% 30%, #fff 0%, #ffd8cf 12%, #ff8c7d 35%, #9a2a3a 62%, #2e0c12 100%); box-shadow: 0 0 20px 3px rgba(255,120,110,.4); }
+.yc-q { margin-top: 12px; font-size: 25px; font-weight: 600; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.yc-q:empty { display: none; }
+.yc-q.interim { color: rgba(255,255,255,.6); }
+.yc-a { margin-top: 10px; font-size: 23px; line-height: 1.42; color: rgba(255,255,255,.9); max-height: 197px; overflow: hidden;
+  display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 6; }
+.yc-a:empty { display: none; }
+.yc-step { color: rgba(255,255,255,.55); }
+.yc-f { margin-top: 12px; font-size: 17px; color: rgba(255,255,255,.45); }
+.yc-f:empty { display: none; }
+.yc-f b { color: rgba(255,255,255,.75); font-weight: 600; }
+.night .yc-a { color: rgba(255,255,255,.82); }
+
+.yp { position: absolute; left: 0; top: 0; width: 1920px; height: 1080px; z-index: 62; opacity: 0; visibility: hidden; transition: opacity .35s ease, visibility 0s linear .35s; }
+.yp.on { opacity: 1; visibility: visible; transition: opacity .35s ease; }
+.yp-scrim { position: absolute; left: 0; top: 0; width: 1920px; height: 1080px; background: linear-gradient(180deg, rgba(4,5,10,.6), rgba(4,5,10,.42) 45%, rgba(4,5,10,.72)); }
+body.yp-on #rows, body.yp-on .discover, body.yp-on .hint, body.yp-on .wpcap, body.yp-on .dsc-sub, body.yp-on .yc { opacity: 0 !important; transition: opacity .3s ease; }
+.yp .glass.yp-box { position: absolute; left: 340px; top: 110px; width: 1240px; height: 860px; box-sizing: border-box; padding: 40px 56px 0; border-radius: 34px; }
+.yp-h { position: relative; height: 40px; line-height: 40px; padding-left: 54px; font-size: 20px; letter-spacing: .12em; color: rgba(255,255,255,.5); }
+.yp-h b { font-weight: 600; text-transform: uppercase; color: rgba(255,255,255,.78); margin-right: 12px; }
+.yp-h span { letter-spacing: .03em; }
+.yp-q { margin-top: 18px; font-size: 34px; font-weight: 600; line-height: 1.3; color: #fff; max-height: 88px; overflow: hidden; }
+.yp .glass > .yp-view { position: absolute; left: 56px; right: 70px; top: 196px; bottom: 96px; overflow: hidden; }
+.yp-view.more { -webkit-mask-image: linear-gradient(180deg, #000 88%, transparent); }
+.yp-view.top { -webkit-mask-image: linear-gradient(180deg, transparent, #000 8%, #000 100%); }
+.yp-view.top.more { -webkit-mask-image: linear-gradient(180deg, transparent, #000 8%, #000 88%, transparent); }
+.yp-body { font-size: 30px; line-height: 1.5; color: rgba(255,255,255,.92); transition: transform .22s ease; will-change: transform; }
+.yp-body p { margin: 0 0 22px; }
+.yp-body ul { margin: 0 0 22px; padding-left: 38px; }
+.yp-body li { margin-bottom: 10px; }
+.yp-body b { color: #fff; }
+.yp-its span { display: inline-block; font-size: 22px; padding: 8px 16px; margin: 0 12px 12px 0; border-radius: 14px; background: rgba(255,255,255,.1); color: rgba(255,255,255,.85); }
+.yp .glass > .yp-bar { position: absolute; right: 36px; top: 200px; bottom: 100px; width: 6px; border-radius: 3px; background: rgba(255,255,255,.1); }
+.yp-bar i { display: block; width: 6px; border-radius: 3px; background: rgba(255,255,255,.55); transition: transform .22s ease; }
+.yp .glass > .yp-f { position: absolute; left: 56px; right: 56px; bottom: 0; height: 96px; line-height: 96px; font-size: 21px; color: rgba(255,255,255,.5); }
+.yp-f b { color: rgba(255,255,255,.85); font-weight: 600; }
+.yp-back { position: absolute; right: 0; top: 22px; height: 52px; line-height: 52px; padding: 0 24px; border-radius: 26px; font-size: 22px; color: #fff;
+  background: rgba(255,255,255,.14); box-shadow: inset 0 0 0 2px rgba(255,255,255,.75), 0 0 22px rgba(160,180,255,.3); }
+.yp-back b { margin-right: 8px; }
+.night .yp-body { color: rgba(255,255,255,.84); }

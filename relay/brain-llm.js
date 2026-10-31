@@ -2,7 +2,7 @@
 // LLM brain: one OpenAI-compatible chat/completions client with function calling. Model is chosen by env, so a paid model
 // can drop in later with no code change. Each model round-trip and each tool call is a real timeline step.
 const https = require('https'), http = require('http'), fs = require('fs'), path = require('path'), { URL } = require('url');
-const T = require('./tools'), M = require('./metrics');
+const T = require('./tools'), M = require('./metrics'), CH = require('./chats');
 const { PLATFORMS } = require('./catalog');
 const E = process.env;
 
@@ -120,17 +120,33 @@ const TOOLS = [
   { type: 'function', function: { name: 'launcher_action', description: 'Control the TV launcher: open a streaming app, or show that service\'s picks in the launcher\'s Discover row.',
     parameters: { type: 'object', properties: { action: { type: 'string', enum: ['open_app', 'show_platform'] }, app: { type: 'string', enum: Object.keys(PLATFORMS) } }, required: ['action', 'app'] } } }
 ];
-const STEP_LABEL = { search_titles: 'Searching titles', get_ratings: 'Checking ratings', get_weather: 'Checking the weather', launcher_action: 'TV action' };
+TOOLS.push({ type: 'function', function: { name: 'play_on_tv', description: 'Play something on the TV now: a song, artist, music video or YouTube video (service youtube), or a show/movie on a streaming service ("play Breaking Bad on Netflix"; service any = wherever it streams). Returns what really happened: playing, opened the title, or only opened the app.',
+  parameters: { type: 'object', properties: {
+    query: { type: 'string', description: 'what to play: for music the song and artist ("Underwater by RÜFÜS DU SOL"), a video topic, or the show/movie title (no service name). For YouTube this is used to look up a video, but usually only the YouTube app opens; say so.' },
+    service: { type: 'string', enum: ['youtube', 'netflix', 'prime', 'disney', 'hulu', 'hbomax', 'appletv', 'peacock', 'any'] },
+    kind: { type: 'string', enum: ['music', 'video', 'title'], description: 'music = song/artist; video = other YouTube video; title = show or movie' },
+    different: { type: 'boolean', description: 'true when the user wants something other than what played last ("some other song")' } }, required: ['query', 'service'] } } });
+const STEP_LABEL = { search_titles: 'Searching titles', get_ratings: 'Checking ratings', get_weather: 'Checking the weather', launcher_action: 'TV action', play_on_tv: 'Playing on the TV' };
+let PLAY = null;   // set by server.js (needs the TV connection): async (args, ctx) => result
+function setPlayer(fn) { PLAY = fn; }
 
-function system() {
+// v6: a general assistant first (phone chat), TV tools only when the request needs them
+function system(s) {
   const tz = E.HOME_TZ || 'America/Los_Angeles';
   const now = new Date().toLocaleString('en-US', { timeZone: tz, weekday: 'long', month: 'long', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' });
-  return 'You are Yo-Yo, the brief, friendly voice assistant on the user\'s Samsung TV (a custom launcher). The user talks to you from their phone; your reply is shown on the TV and may be read aloud.\n' +
+  let p = 'You are Yo-Yo, the user\'s friendly, knowledgeable personal assistant. They chat with you in an app on their phone (typed or by voice); your replies also appear on their Samsung TV and the first sentence or two may be read aloud.\n' +
     'Now: ' + now + ' (' + tz + '). Home: ' + (E.WEATHER_PLACE || 'San Jose, CA') + '. Their streaming apps: Netflix, HBO Max, Prime Video, Hulu, Apple TV+, Peacock, Disney+, YouTube.\n' +
-    'Rules: Reply in 1-3 short spoken sentences, plain text, no markdown, no lists, no emoji, no URLs. ' +
-    'For anything about what to watch, specific titles, ratings, weather, or opening apps, call the tools and only state facts the tools returned (never invent ratings, runtimes or availability). ' +
-    'Prefer titles on their services. Mention the top pick by name with its IMDb score. If the user asks to watch/open something, use launcher_action. ' +
-    'For general questions (facts, explanations, chit-chat, follow-ups) answer directly from your own knowledge, briefly. Use the conversation so far for follow-ups like "what about on Hulu" or "is the second one good".';
+    'Style: natural, warm and direct. Match the length to the question: chit-chat and quick facts in 1-3 sentences; explanations, advice, plans or how-tos in a few short paragraphs (under about 150 words unless they ask for more). Plain text, no markdown, no emoji, no URLs; short numbered lines are fine for steps. ' +
+    'Answer general questions (facts, explanations, advice, math, writing, ideas, follow-ups) directly from your own knowledge and do not steer the conversation toward TV or movies.\n' +
+    'Tools, only when the request needs them: search_titles and get_ratings for what to watch or facts about a title (state only what they return; never invent ratings, runtimes or availability; prefer their services); get_weather for weather; ' +
+    'play_on_tv when they want something played on the TV ("play some RÜFÜS DU SOL on YouTube", "play Breaking Bad on Netflix"), then say plainly what actually happened (playing, opened the title, only opened the app, or searching YouTube); launcher_action only to open an app or show a service.\n' +
+    'Use the conversation so far for follow-ups like "what about on Hulu", "is the second one good" or "play another one".';
+  if (s && (s.summary || (s.older && s.older.length))) {
+    p += '\nEarlier in this chat (older than the messages below):';
+    if (s.summary) p += '\n' + s.summary;
+    (s.older || []).slice(-12).forEach(o => { p += '\nUser: ' + o.u + ' / Yo-Yo: ' + o.a; });
+  }
+  return p;
 }
 // compact tool results for the model (keeps tokens low for free-tier TPM limits)
 function forModel(name, r) {
@@ -140,17 +156,60 @@ function forModel(name, r) {
   return r;
 }
 
-// Conversation memory per phone (client id). Stored as whole turns (user -> [assistant tool_calls -> tool results]* ->
+// Conversation memory per chat (v6: persisted by chats.js, no idle reset). Stored as whole turns (user -> [assistant tool_calls -> tool results]* ->
 // assistant text) so a slice never orphans a tool message or a tool call. Only the newest FULL_TURNS keep their
 // tool calls/results; older turns are compacted to plain user/assistant text (fewer tokens, and nothing for
 // Gemini to re-validate). Turns answered by the built-in parser are stored as plain text too.
-const SESS = new Map(), IDLE_MS = +(E.LLM_MEMORY_MS || 30 * 60 * 1000), MAX_TURNS = +(E.LLM_MEMORY_TURNS || 8), FULL_TURNS = 2;
+// Turns that slide out of the last MAX_TURNS become one-line notes in s.older; every SUMMARY_EVERY notes they are
+// folded into s.summary (one small background LLM call, budget-counted; Ollama when it is up; else extractive).
+const MAX_TURNS = +(E.LLM_MEMORY_TURNS || 8), FULL_TURNS = 2, SUMMARY_EVERY = +(E.LLM_SUMMARY_EVERY || 4), SUMMARY_MAX = 900;
+const LEGACY = new Map();   // old-style session ids (no chat id sent) -> chat id, so old clients still get memory
 function history(id) {
-  const s = SESS.get(id), now = Date.now();
-  if (!s || now - s.at > IDLE_MS) { const n = { at: now, turns: [], expired: !!(s && s.turns.length) }; SESS.set(id, n); if (SESS.size > 50) SESS.delete(SESS.keys().next().value); return n; }
-  s.at = now; return s;
+  if (id && typeof id === 'object') return id;
+  if (CH.validId(id)) { const c = CH.get(id); if (c) return c; }
+  const cid = LEGACY.get(id || 'default'), c = cid && CH.get(cid);
+  if (c) return c;
+  const n = CH.create({ client: String(id || 'default').slice(0, 64) }); LEGACY.set(id || 'default', n.id); return n;
 }
-function reset(id) { SESS.delete(id || 'default'); }
+function reset(id) { LEGACY.delete(id || 'default'); }
+const clip = (t, n) => { t = String(t || '').replace(/\s+/g, ' ').trim(); return t.length > n ? t.slice(0, n - 1) + '\u2026' : t; };
+function trim(s) {
+  while (s.turns.length > MAX_TURNS) { const t = s.turns.shift(); s.older.push({ u: clip(textOf(t[0].content), 220), a: clip(t.answer || textOf(t[t.length - 1].content), 260) }); }
+  if (s.older.length >= SUMMARY_EVERY) scheduleSummary(s);
+}
+const SUMMARIZING = new Set();
+function scheduleSummary(s) {
+  if (SUMMARIZING.has(s.id) || E.LLM_SUMMARY === '0') return;
+  SUMMARIZING.add(s.id);
+  setTimeout(() => summarize(s).catch(() => {}).then(() => SUMMARIZING.delete(s.id)), 50);
+}
+function extractive(summary, notes) {
+  let t = [summary].concat(notes.map(o => 'User: ' + o.u + ' / Yo-Yo: ' + o.a)).filter(Boolean).join(' ');
+  if (t.length > SUMMARY_MAX) { t = t.slice(-SUMMARY_MAX); t = t.slice(t.indexOf(' ') + 1); }
+  return t;
+}
+// fold s.older into s.summary. Remote LLM only if the daily budget allows (and it is counted); max ~300 output tokens.
+async function summarize(s) {
+  const notes = s.older.slice(); if (!notes.length) return s.summary;
+  let out = null;
+  const sys = 'You keep the running memory of a chat between the user and their assistant Yo-Yo. Merge the existing summary and the new exchanges into one updated summary of at most 110 words: keep facts about the user, their preferences, decisions, names and titles mentioned, and open questions. Plain text only.';
+  const user = 'Existing summary: ' + (s.summary || '(none)') + '\nNew exchanges:\n' + notes.map(o => 'User: ' + o.u + '\nYo-Yo: ' + o.a).join('\n');
+  for (const ep of endpoints()) {
+    try {
+      if (ep.local) { if (!(await ollamaUp())) continue; }
+      else { if (budgetBlock()) continue; budget().requests++; saveBudget(); }
+      const body = { model: ep.model, messages: [{ role: 'system', content: sys }, { role: 'user', content: user }], max_tokens: +(E.LLM_SUMMARY_TOKENS || 400) };
+      if (ep.reasoning) body.reasoning_effort = ep.reasoning;
+      const r = await post(ep, body, ep.local ? 60000 : 20000);
+      if (!ep.local && r.usage) { budget().tokens += r.usage.total_tokens || ((r.usage.prompt_tokens || 0) + (r.usage.completion_tokens || 0)); saveBudget(); }
+      const t = textOf(r.choices && r.choices[0] && r.choices[0].message && r.choices[0].message.content).replace(/[*_#`]/g, '').trim();
+      if (t) { out = clip(t, SUMMARY_MAX); s.summaryBy = ep.model; break; }
+    } catch (e) { if (e.budget) continue; }
+  }
+  if (!out) { out = extractive(s.summary, notes); s.summaryBy = 'extractive'; }
+  s.summary = out; s.older.splice(0, notes.length); CH.save(s);
+  return out;
+}
 function textOf(c) { return typeof c === 'string' ? c : Array.isArray(c) ? c.map(p => (p && p.text) || '').join('') : ''; }
 const compactTurn = t => [t[0], { role: 'assistant', content: t.answer || textOf(t[t.length - 1].content) || 'Done.' }];
 // a turn is valid if it starts with a non-empty user message, every tool_calls message is followed by exactly its
@@ -175,7 +234,7 @@ function memory(s, compactAll) {
 function remember(id, user, answer) {   // a plain-text turn (built-in parser answers), so follow-ups keep context
   if (!user || !answer) return;
   const s = history(id || 'default'), t = [{ role: 'user', content: user }, { role: 'assistant', content: answer }]; t.answer = answer;
-  s.turns.push(t); if (s.turns.length > MAX_TURNS) s.turns.splice(0, s.turns.length - MAX_TURNS);
+  s.turns.push(t); trim(s); CH.save(s);
 }
 // assistant message as the chat API defines it: tool calls always carry an id (+ Gemini's extra_content thought
 // signature, echoed verbatim), no null/empty text, no other provider fields
@@ -224,7 +283,7 @@ function cancelErr() { const e = new Error('cancelled (newer question)'); e.canc
 
 // one attempt on one endpoint; resolves { text, items, brain } and stores the turn, or throws
 async function attempt(ep, text, ctx, s, base, lang) {
-  const sys = system() + (LANG_RULE[lang] ? '\n' + LANG_RULE[lang] : '');
+  const sys = system(s) + (LANG_RULE[lang] ? '\n' + LANG_RULE[lang] : '');
   const turn = [{ role: 'user', content: text }], items = [];
   for (let round = 0; round < 5; round++) {
     if (cancelled(ctx)) throw cancelErr();
@@ -235,7 +294,7 @@ async function attempt(ep, text, ctx, s, base, lang) {
       if (!msg.content) msg.content = answer;   // never store empty assistant text
       turn.push(msg); turn.answer = answer;
       if (cancelled(ctx)) throw cancelErr();      // a superseded question doesn't overwrite newer memory
-      s.turns.push(turn); if (s.turns.length > MAX_TURNS) s.turns.splice(0, s.turns.length - MAX_TURNS); s.at = Date.now();
+      s.turns.push(turn); trim(s); CH.save(s);
       return { text: answer, items: pickItems(answer, items), brain: ep.model };
     }
     turn.push(msg);
@@ -243,7 +302,7 @@ async function attempt(ep, text, ctx, s, base, lang) {
       let args = {}; try { args = JSON.parse(c.function.arguments || '{}'); } catch (x) {}
       let res;
       try {
-        const fn = { search_titles: T.searchTitles, get_ratings: T.getRatings, get_weather: T.getWeather, launcher_action: T.launcherAction }[c.function.name];
+        const fn = { search_titles: T.searchTitles, get_ratings: T.getRatings, get_weather: T.getWeather, launcher_action: T.launcherAction, play_on_tv: PLAY }[c.function.name];
         res = fn ? await M.timeTool(ctx, c.function.name, args, () => fn(args, ctx)) : { error: 'unknown tool' };
         if (res && res.items) res.items.forEach(i => { if (!items.some(x => x.id === i.id)) items.push(i); });
       } catch (x) { res = { error: x.user || x.message }; }
@@ -256,8 +315,9 @@ async function attempt(ep, text, ctx, s, base, lang) {
 async function run(text, ctx, sessionId, opts) {
   opts = opts || {};
   const eps = endpoints(), s = history(sessionId || 'default');
-  if (!s.turns.length && ctx.step) await ctx.step('New conversation', async () => (s.expired ? 'previous chat expired after ' + Math.round(IDLE_MS / 60000) + ' min idle \u00b7 ' : '') + ('memory keeps ' + MAX_TURNS + ' turns, resets after ' + Math.round(IDLE_MS / 60000) + ' min idle'));
-  else if (ctx.step) await ctx.step('Remembering', async () => s.turns.length + ' earlier turn' + (s.turns.length === 1 ? '' : 's'));
+  const early = s.summary || s.older.length;
+  if (!s.turns.length && !early && ctx.step) await ctx.step('New conversation', async () => 'memory: last ' + MAX_TURNS + ' turns + a short summary of older ones');
+  else if (ctx.step) await ctx.step('Remembering', async () => s.turns.length + ' recent turn' + (s.turns.length === 1 ? '' : 's') + (early ? ' + summary of earlier ones' : ''));
   let lastErr = null;
   for (let e = 0; e < eps.length; e++) {
     const ep = eps[e];
@@ -297,4 +357,7 @@ function pickItems(answer, items) {
   return (hit.length ? hit : items).slice(0, 4);
 }
 function describe() { const e = endpoints()[0]; return e ? e.model + ' @ ' + e.base.replace(/^https?:\/\//, '').split('/')[0] : null; }
-module.exports = { budgetStatus, pacificDay, run, remember, reset, memory, validTurn, cleanAssistant, IDLE_MS, MAX_TURNS, enabled, describe, endpoints, ollamaUp, post, SESS, STEP_LABEL, PRESETS };
+// shared with stt.js (Gemini audio fallback counts against the same daily caps)
+function spend(tokens) { budget().tokens += +tokens || 0; saveBudget(); }
+function reserve() { const why = budgetBlock(); if (why) return why; budget().requests++; saveBudget(); return null; }
+module.exports = { budgetStatus, pacificDay, run, remember, reset, memory, validTurn, cleanAssistant, MAX_TURNS, SUMMARY_EVERY, enabled, describe, endpoints, ollamaUp, post, history, summarize, extractive, system, setPlayer, spend, reserve, checkBilling, LEGACY, STEP_LABEL, PRESETS, TOOLS };
