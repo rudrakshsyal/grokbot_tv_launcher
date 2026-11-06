@@ -1,4 +1,4 @@
-# Glass Home relay (v6.2)
+# Glass Home relay (v6.3)
 
 A small Node server that runs on a Mac on your home network (any always-on computer with Node works; the examples call its address `YOUR-MAC-IP`). It has **no npm dependencies**.
 - Your **iPhone** is a TV remote and the microphone. The phone page (add it to the Home Screen) has three tabs: **Remote** (D-pad, Back, Home, Play/Pause, volume, power, app shortcuts), **Yo-Yo** (a chat: hold the mic and speak, or type; answers can be spoken) and **Home** (smart-home placeholder).
@@ -324,7 +324,10 @@ Say or type "play Breaking Bad on Netflix", "open Severance on Apple TV", "put D
 
 Apps are launched with `POST http://TV_IP:8001/api/v2/applications/<id>` using the **numeric Samsung app ids** (`storeIds[0]` in the launcher's `js/apps.js`, or the `dock-apps.json` snapshot when the relay runs without `../js`;
 the TV's REST API launches store ids, the Tizen package ids are what the launcher itself uses). REST calls time out after **8 s**
-(slow TVs can take several seconds to start an app). Launching needs no pairing; key presses (profile OK) do.
+(slow TVs can take several seconds to start an app). A **200** whose body is empty or anything other than the literal `false`
+counts as success, so a messy response after the app has opened is not followed by a second WebSocket launch. A timeout, a
+socket reset before any status line, or a `false` body falls back to **one** `ed.apps.launch`. Two requests for the same id
+while that attempt is in flight share it. Launching needs no pairing; key presses (profile OK) do.
 
 | App | Samsung app id |
 |---|---|

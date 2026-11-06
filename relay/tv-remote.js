@@ -226,8 +226,20 @@ class TvRemote extends EventEmitter {
     return k;
   }
   // App launch: REST first (POST :8001/api/v2/applications/<id>), then ed.apps.launch over the WebSocket.
+  // A 200 whose body is empty or anything other than the literal "false" counts as success. Some QN90A firmware
+  // answers with a non-JSON body after the app has already opened; a second WebSocket launch would open it twice.
+  // Timeout, socket reset before a status line, HTTP errors and a "false" body fall back to exactly one WebSocket launch.
+  // Two callers for the same id while that request is in flight share one attempt.
   async launch(appId, opts) {
     if (!APP_ID.test(appId || '')) throw Object.assign(new Error('bad app id'), { code: 'bad-app' });
+    if (this._inflight && this._inflight[appId]) return this._inflight[appId];
+    const p = this._launchOnce(appId, opts);
+    (this._inflight || (this._inflight = {}))[appId] = p;
+    const clear = () => { if (this._inflight[appId] === p) delete this._inflight[appId]; };
+    p.then(clear, clear);
+    return p;
+  }
+  async _launchOnce(appId, opts) {
     this.lastUse = Date.now();
     const rest = await this.restLaunch(appId).catch(e => ({ ok: false, error: e.message }));
     if (rest.ok) return { via: 'rest', appId };

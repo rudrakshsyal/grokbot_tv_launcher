@@ -13,7 +13,7 @@ html,body{margin:0;height:100%;overflow:hidden;background:#07080d;color:var(--fg
 body{position:fixed;inset:0;display:flex;flex-direction:column;padding:calc(env(safe-area-inset-top) + 10px) 18px calc(env(safe-area-inset-bottom) + 12px);-webkit-user-select:none;user-select:none}
 body:before{content:'';position:fixed;inset:-20%;z-index:-1;background:radial-gradient(40% 30% at 20% 18%,rgba(92,104,255,.28),transparent 70%),radial-gradient(35% 28% at 85% 60%,rgba(170,80,255,.16),transparent 70%),radial-gradient(45% 30% at 40% 100%,rgba(40,150,255,.14),transparent 70%)}
 button{font:inherit;color:inherit;border:0;background:none;padding:0;cursor:pointer;touch-action:manipulation}
-.glass{background:var(--glass);border:1px solid var(--line);-webkit-backdrop-filter:blur(26px) saturate(170%);backdrop-filter:blur(26px) saturate(170%);box-shadow:inset 0 1px 0 rgba(255,255,255,.07),0 10px 30px rgba(0,0,0,.25)}
+.glass{background:var(--glass);border:1px solid var(--line);-webkit-backdrop-filter:blur(12px) saturate(140%);backdrop-filter:blur(12px) saturate(140%);box-shadow:inset 0 1px 0 rgba(255,255,255,.07),0 8px 22px rgba(0,0,0,.22)}
 .press{transition:transform .14s cubic-bezier(.3,.7,.4,1),background .14s}
 .press.down,.press:active{transform:scale(.93);background:var(--glass2)}
 /* top bar */
@@ -24,7 +24,7 @@ button{font:inherit;color:inherit;border:0;background:none;padding:0;cursor:poin
 .pwr{width:40px;height:40px;border-radius:50%;display:grid;place-items:center}
 .pwr svg{width:19px;height:19px;stroke:#ff8f8f}
 .seg{position:relative;display:flex;margin:12px 0 4px;border-radius:14px;padding:3px;height:40px}
-.seg button{flex:1;position:relative;z-index:1;font-size:14px;font-weight:600;color:var(--dim);border-radius:11px;transition:color .2s}
+.seg button{flex:1;position:relative;z-index:1;font-size:14px;font-weight:500;letter-spacing:.01em;color:var(--dim);border-radius:11px;transition:color .2s}
 .seg button.on{color:#fff}
 .seg b{position:absolute;top:3px;bottom:3px;left:3px;width:calc((100% - 6px)/3);border-radius:11px;background:rgba(255,255,255,.13);box-shadow:0 2px 10px rgba(0,0,0,.25),inset 0 1px 0 rgba(255,255,255,.1);transition:transform .32s cubic-bezier(.3,.8,.3,1)}
 .views{flex:1;position:relative;min-height:0}
@@ -59,16 +59,16 @@ button{font:inherit;color:inherit;border:0;background:none;padding:0;cursor:poin
 .ib{flex:none;width:40px;height:40px;border-radius:50%;display:grid;place-items:center}
 .ib svg{width:19px;height:19px;fill:none;stroke:#e6e9f5;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
 .ctitle{flex:1;min-width:0;text-align:center}
-#ctitle{font-size:15px;font-weight:650;letter-spacing:-.01em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#ctitle{font-size:15px;font-weight:600;letter-spacing:.01em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .ystate{font-size:10.5px;letter-spacing:.09em;text-transform:uppercase;font-weight:600;color:var(--dim);height:14px;margin-top:1px}
 .thread{flex:1;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;display:flex;flex-direction:column;gap:9px;padding:12px 2px 10px;mask-image:linear-gradient(transparent,#000 14px,#000 calc(100% - 10px),transparent);scrollbar-width:none}
 .thread::-webkit-scrollbar{display:none}
 .empty{margin:auto 10px;text-align:center;color:var(--dim);font-size:15px;line-height:1.45}
-.empty b{display:block;color:var(--fg);font-size:19px;font-weight:650;margin-bottom:6px;letter-spacing:-.01em}
-.msg{position:relative;max-width:84%;padding:10px 14px;border-radius:21px;font-size:16px;line-height:1.38;white-space:pre-wrap;word-wrap:break-word;-webkit-user-select:text;user-select:text;animation:pop .28s cubic-bezier(.3,.8,.3,1)}
-@keyframes pop{from{opacity:0;transform:translateY(6px) scale(.98)}}
-.msg.me{align-self:flex-end;border-bottom-right-radius:7px;color:#fff;background:linear-gradient(140deg,rgba(132,146,255,.62),rgba(118,84,255,.46));border:1px solid rgba(255,255,255,.2);-webkit-backdrop-filter:blur(22px) saturate(180%);backdrop-filter:blur(22px) saturate(180%);box-shadow:inset 0 1px 0 rgba(255,255,255,.28),inset 0 -8px 18px rgba(40,20,120,.18),0 8px 22px rgba(70,60,200,.25)}
-.msg.bot{align-self:flex-start;border-bottom-left-radius:7px;color:#e9ebf5;background:linear-gradient(160deg,rgba(255,255,255,.11),rgba(255,255,255,.045));border:1px solid rgba(255,255,255,.12);-webkit-backdrop-filter:blur(26px) saturate(170%);backdrop-filter:blur(26px) saturate(170%);box-shadow:inset 0 1px 0 rgba(255,255,255,.14),0 10px 26px rgba(0,0,0,.25)}
+.empty b{display:block;color:var(--fg);font-size:18px;font-weight:600;margin-bottom:6px;letter-spacing:.01em}
+.msg{position:relative;max-width:84%;padding:11px 14px;border-radius:18px;font-size:16px;font-weight:400;line-height:1.45;white-space:pre-wrap;word-wrap:break-word;-webkit-user-select:text;user-select:text;animation:pop .16s ease}
+@keyframes pop{from{opacity:0}}
+.msg.me{align-self:flex-end;border-bottom-right-radius:7px;color:#fff;background:linear-gradient(140deg,rgba(124,138,240,.88),rgba(92,70,210,.84));border:1px solid rgba(255,255,255,.16);box-shadow:inset 0 1px 0 rgba(255,255,255,.2)}
+.msg.bot{align-self:flex-start;border-bottom-left-radius:7px;color:#e9ebf5;background:rgba(32,34,48,.9);border:1px solid rgba(255,255,255,.1);box-shadow:inset 0 1px 0 rgba(255,255,255,.08)}
 .msg.err{border-color:rgba(255,128,128,.35)}
 .msg small{display:block;margin-top:6px;color:var(--faint);font-size:11.5px;white-space:normal}
 .msg .pl{display:inline-flex;align-items:center;gap:6px;margin-top:8px;padding:5px 10px;border-radius:99px;font-size:12.5px;font-weight:600;background:rgba(95,224,161,.14);color:#a6f1cb;white-space:normal}
@@ -275,11 +275,16 @@ function paintPair() {
   $('pairh').textContent = h; $('pairp').innerHTML = d; $('pairgo').textContent = btn;
   $('pairt').textContent = st === 'pairing' && tvst.pairingSince ? Math.max(0, Math.round((Date.now() - tvst.pairingSince) / 1000)) + ' s' : (tvst.lastError && st === 'pair-timeout' ? tvst.lastError : '');
 }
-let pollT;
+let pollT, needStatus = true, relayWasDown = false;
 function poll() {
   clearTimeout(pollT);
-  fetch('/remote/status').then(r => r.json()).then(s => { tvst = s; relayOk = true; paintPill(); }, () => { relayOk = false; paintPill(); })
-    .finally(() => { pollT = setTimeout(poll, tvst && tvst.state === 'pairing' ? 1000 : 5000); });
+  const ac = new AbortController(), tm = setTimeout(() => ac.abort(), 8000);
+  fetch('/remote/status', { cache: 'no-store', signal: ac.signal }).then(r => r.json()).then(s => {
+    const back = !relayOk; tvst = s; relayOk = true; paintPill();
+    if (back) relayWasDown = true;
+    if (needStatus || back) refreshStatus();
+  }, () => { relayOk = false; relayWasDown = true; paintPill(); })
+    .finally(() => { clearTimeout(tm); pollT = setTimeout(poll, tvst && tvst.state === 'pairing' ? 1000 : 5000); });
 }
 poll();
 document.addEventListener('visibilitychange', () => { if (!document.hidden) poll(); });
@@ -342,7 +347,13 @@ mode(localStorage.getItem('rv.mode') || 'dpad');
 })();
 // quick launch: Glass Home + the launcher dock apps (from the TV app's config, via the relay)
 function chip(name, color, fn) { const b = document.createElement('button'); b.className = 'app glass press'; b.innerHTML = '<i></i>'; b.firstChild.style.background = color; b.appendChild(document.createTextNode(name)); b.addEventListener('click', fn); $('apps').appendChild(b); }
-function launch(k, name) { toast('Opening ' + name + '…', 1500); post('/remote/launch', { app: k }).then(remoteResult, () => toast('Can’t reach the relay on the Mac.')); }
+const launchingApp = {};
+function launch(k, name) {   // one request per app until it settles — a double tap must not open the app twice
+  if (launchingApp[k]) return;
+  launchingApp[k] = 1;
+  toast('Opening ' + name + '…', 1600);
+  post('/remote/launch', { app: k }).then(remoteResult, () => toast('Can’t reach the relay on the Mac.')).finally(() => { delete launchingApp[k]; });
+}
 fetch('/remote/apps').then(r => r.json()).then(d => {
   chip('Glass Home', 'linear-gradient(135deg,#b9c4ff,#6a5cff)', () => launch('launcher', 'Glass Home'));
   chip('Yo-Yo on TV', 'radial-gradient(circle at 35% 30%,#c3cdff,#5b6cff)', () => post('/remote/launcher', { action: 'yoyo' }).then(remoteResult));
@@ -539,7 +550,15 @@ document.addEventListener('visibilitychange', () => { if (document.hidden) { sto
 
 let sttInfo = { engine: 'off' }, sttBroken = false, brainName = '';
 const paintBrain = () => { $('brain').textContent = [brainName, useRec() ? 'speech: ' + sttInfo.engine + ' on the Mac' : SR ? 'speech: on this phone' : ''].filter(Boolean).join(' \u00b7 '); };
-fetch('/status').then(r => r.json()).then(s => { brainName = s.mock ? 'mock replay' : s.brain; if (s.stt) sttInfo = s.stt; paintBrain(); paintMicAvail(); }, () => {});
+function refreshStatus() {
+  const ac = new AbortController(), tm = setTimeout(() => ac.abort(), 8000);
+  return fetch('/status', { cache: 'no-store', signal: ac.signal }).then(r => r.ok ? r.json() : Promise.reject(new Error('status'))).then(s => {
+    brainName = s.mock ? 'mock replay' : (s.brain || '');
+    if (s.stt && s.stt.engine && s.stt.engine !== 'off') { sttInfo = s.stt; if (relayWasDown) sttBroken = false; }
+    needStatus = false; relayWasDown = false; paintBrain(); paintMicAvail();
+  }, () => { needStatus = true; }).finally(() => clearTimeout(tm));
+}
+refreshStatus();
 const sec = ms => ms == null ? '\u2013' : ms < 1000 ? ms + ' ms' : (ms / 1000).toFixed(1) + ' s';
 const kf = n => n == null ? 'n/a' : n >= 1000 ? (n / 1000).toFixed(1) + 'k' : String(n);
 function ui(state, label, heard, interim) {   // state: idle | listening | cancelling | sending | answer
@@ -639,7 +658,9 @@ function upload(p) {
       if (code === 413) { stop(); ui('idle', null, 'That recording was too long. Keep it under ' + (sttInfo.maxSec || 30) + ' seconds.', true); return; }
       if (code === 429) { stop(); ui('idle', null, j.error === 'slow down' ? 'One moment, then hold again.' : (j.error || 'Speech-to-text limit reached for today.'), true); if (j.error !== 'slow down') sttFallback(j.error); return; }
       stop('stt ' + code); sttFallback(j.error);
-    }, () => { stop('stt unreachable'); sttFallback('Couldn\u2019t reach speech-to-text on the Mac.'); });
+    }, () => {   // a dropped connection is not a dead engine: the next hold tries the Mac again
+      stop('stt unreachable'); ui('idle', null, 'Couldn\u2019t reach speech-to-text on the Mac. Hold again, or type below.', true);
+    });
 }
 let lastStt = '';
 
@@ -760,6 +781,7 @@ mic.addEventListener('mousedown', e => { if (e.button) return; e.preventDefault(
 window.addEventListener('mousemove', e => { if (mouse) track(e.clientX, e.clientY); });
 window.addEventListener('mouseup', () => { if (mouse) { mouse = false; holdEnd(false); } });
 window.addEventListener('blur', () => { if ((H && H.held) || (RP && RP.held)) holdEnd(true); });
-window.RV = { chat: () => chatId, rec: () => RP && { held: RP.held, recording: !!RP.rec, chunks: RP.chunks.length }, stt: () => ({ use: useRec(), broken: sttBroken, last: lastStt }), state: () => H && { id: H.id, held: H.held, cancel: H.cancel, restarts: H.restarts, text: heardNow(H), diag: H.diag.slice() }, tab, lang: () => lang, voice: () => { const v = voiceFor(lang); return v && v.name; }, spokenOf };   // tests/preview
+window.RV = { chat: () => chatId, rec: () => RP && { held: RP.held, recording: !!RP.rec, chunks: RP.chunks.length }, stt: () => ({ use: useRec(), broken: sttBroken, last: lastStt, engine: sttInfo && sttInfo.engine }), state: () => H && { id: H.id, held: H.held, cancel: H.cancel, restarts: H.restarts, text: heardNow(H), diag: H.diag.slice() }, tab, lang: () => lang, voice: () => { const v = voiceFor(lang); return v && v.name; }, spokenOf,
+  refreshStatus, markRelayDown: () => { relayOk = false; relayWasDown = true; }, breakStt: () => { sttBroken = true; paintBrain(); paintMicAvail(); }, launching: () => Object.keys(launchingApp) };   // tests/preview
 })();
 </script></body></html>

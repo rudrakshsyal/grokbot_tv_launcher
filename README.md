@@ -17,6 +17,10 @@ multi-turn memory, reliable **hold-to-talk** (the phone records, the relay trans
 **"Play X on &lt;service&gt;"**, a small **Yo-Yo reply card** in the corner of the TV and **Show on TV** for long answers.
 See [What's new](#whats-new-in-v6-v61-and-v62).
 
+**New in v6.3 (polish on top of v6.2):** a thinner, quieter dock, a clock that paints before the scripts load, remote
+focus that does not read layout on the key path, and sturdier chat / voice / launch behaviour when the relay blips.
+Nothing from v6.2 is removed. See [v6.3](#whats-new-in-v63).
+
 | Ambient (what you see most of the time) | Dock revealed |
 |---|---|
 | ![Ambient](docs/preview-v2-ambient.jpg) | ![Dock](docs/preview-v2-dock.jpg) |
@@ -41,7 +45,7 @@ See [What's new](#whats-new-in-v6-v61-and-v62).
 
 ## Contents
 
-0. [What's new in v6, v6.1 and v6.2](#whats-new-in-v6-v61-and-v62) · [v4 and v5](#whats-new-in-v4-and-v5)
+0. [What's new in v6.3](#whats-new-in-v63) · [v6, v6.1 and v6.2](#whats-new-in-v6-v61-and-v62) · [v4 and v5](#whats-new-in-v4-and-v5)
 1. [Honest limits (read first)](#honest-limits-read-first)
 2. [Compatibility](#compatibility)
 3. [What you need](#what-you-need)
@@ -70,6 +74,87 @@ See [What's new](#whats-new-in-v6-v61-and-v62).
 11. [Credits & licenses](#credits--licenses)
 
 ---
+
+## What's new in v6.3
+
+Polish only. v6.2 behaviour is unchanged: the corner card still appears only while the launcher is on screen, never takes
+focus, fades by itself, and turns off with `voice.card: false` or `?vcard=0`. **Back** dismisses it. **Play/Pause** opens
+the full Yo-Yo panel. **Show on TV** is still the two-tap button on answers of 250+ characters, and it still brings this
+launcher to the front (a web app cannot draw over Netflix or YouTube). YouTube stays open-only (`YT_MODE=dial`).
+
+What got faster or calmer:
+
+- **Dock.** Shorter tiles (148×72 and 96×52), weight-400 labels, a little more space between icons, and a quieter glass
+  edge (softer highlight, less bloom). Focus grows by 6–8% instead of jumping.
+- **First paint.** The clock and greeting are filled by a tiny inline script before the rest of the JavaScript parses.
+- **Remote.** Arrow handling no longer calls `getComputedStyle` (that flushed style on every press past the end of a row)
+  and no longer measures the dock on the key that reveals it. Row positions are cached on the next frame, not during the key.
+- **Corner card.** The answer is shown at once. The old word-by-word timer was rewriting the text every 50 ms.
+- **Relay drops.** A brief event-stream blip shows "Reconnecting…" on the card and leaves a finished answer on screen.
+  The full panel closes only if the relay is still gone after 9 seconds.
+- **Phone.** Chat bubbles no longer each run a backdrop blur (that cost is per bubble while you scroll). If `/status`
+  fails because the relay was down, the next successful poll loads speech-to-text again. A failed upload does not
+  permanently abandon the Mac transcriber; a real `/stt` error (503) still falls back to the phone's own recognition.
+  A second tap on an app shortcut while the first launch is in flight is ignored.
+- **App launch.** One in-flight REST call per app id. HTTP 200 with a body other than `false` is treated as success so a
+  messy-but-successful TV response is not followed by a second WebSocket launch. Timeout, a socket reset before any
+  status, and a `false` body still fall back to one WebSocket launch.
+
+### Install this update
+
+Same as a normal reinstall. Your previous `.wgt` is replaced; settings in `js/config.js` and `relay/.env` stay if you
+don't overwrite them.
+
+```sh
+# on the computer, from a clean checkout of this version
+bash tools/make-dist.sh
+tizen package -t wgt -s <CERT_PROFILE> -- dist
+sdb connect <TV_IP> && tizen install -n Home.wgt -t <TARGET> -- dist
+tizen run -p GlassHome1.launcher -t <TARGET>
+```
+
+Restart the relay if you use the phone (`node relay/server.js`, or the launchd agent from the relay README). Reload the
+phone page. No new privileges, no new API keys, no new daily caps (still 200 requests/day and 200k tokens/day).
+
+### Roll back to v6.2
+
+Keep the `.wgt` you installed before this update. If you still have it:
+
+```sh
+sdb connect <TV_IP> && tizen install -n Home.wgt -t <TARGET> -- <folder-with-the-old-wgt>
+tizen run -p GlassHome1.launcher -t <TARGET>
+```
+
+Or rebuild the v6.2 tree and package that. v6.2 is the merge commit `bd77689` on `main` (pull request #2):
+
+```sh
+git checkout bd77689
+bash tools/make-dist.sh
+tizen package -t wgt -s <CERT_PROFILE> -- dist
+sdb connect <TV_IP> && tizen install -n Home.wgt -t <TARGET> -- dist
+```
+
+The relay is one Node process with no npm dependencies. Stop the new process and start the old checkout's
+`node relay/server.js`. Saved chats in `relay/data/chats/` are plain JSON and are not migrated or deleted by either
+version. `git checkout` the branch you were on afterwards if you want to keep working there.
+
+### Physical-device smoke test
+
+This repository's tests are headless Chrome and a fake TV. They do not prove behaviour on a QN90A or an iPhone.
+On the real devices, after installing:
+
+1. Home opens to the scenic wallpaper and a clock within a moment. No Napa Valley photo. After sunset the night tint is on.
+2. One arrow shows the thin dock. Left/Right across every tile and past both ends feels immediate. Up opens Discover;
+   Back returns to the dock, and Back again hides it. Down reaches HDMI and Settings only when the TV reports inputs.
+3. Open YouTube from the dock. It opens the app and does not search. Open Netflix. Profile deep links are still best effort.
+4. From the phone, ask a short question while Home is on screen. The corner card shows it and does not move the highlight.
+   Back dismisses the card. Play/Pause opens the full orb-and-timeline panel.
+5. Ask something whose answer is at least 250 characters. Show on TV asks twice, then Home comes forward with the panel.
+   OK returns to the app that was playing, when the relay knew one.
+6. Turn the phone to airplane mode and back, or stop and start the relay. The pill says the relay is offline, then
+   recovers. Hold the mic twice after it recovers. Type a question while it is offline and confirm the error bubble.
+7. Double-tap one app chip. The app opens once.
+8. Leave Home idle: the picks screensaver only starts when there are real backdrops, and any key except OK just closes it.
 
 ## What's new in v6, v6.1 and v6.2
 
@@ -776,6 +861,7 @@ bash relay/test/run-all.sh        # every relay test (parser, chats, metrics, bu
 node tools/test-phone.js          # phone page at iPhone size: chat, saved chats, hold-to-talk (fake MediaRecorder), Show on TV
 node tools/test-tvcard.js         # v6.2 corner card + Show on TV panel on the TV
 node tools/test-voice.js; node tools/test-nav.js; node tools/test-v5.js    # TV overlay, focus/navigation, v5 features
+node tools/test-polish.js         # v6.3: key-path cost, early clock, focus restore, reconnect, one-shot launch
 node tools/preview-v62.js         # regenerate the v6.2 screenshots
 ```
 
@@ -871,7 +957,8 @@ you open each app from Glass Home (`discover.platforms`, `platformsByUsage`; You
 | `js/wallpaper.js`, `js/wallpapers.js` | Wallpaper rotator + "baked glass", wallpaper list/credits |
 | `js/daynight.js`, `js/inputs.js`, `js/saver.js` | v5 day/night, inputs + Settings row, picks screensaver |
 | `js/voice.js` | v4 Yo-Yo overlay (SSE client of the relay; hidden when `voice.relay` is empty) |
-| `js/tvcard.js` | v6.2 Yo-Yo corner card + Show on TV panel |
+| `js/tvcard.js` | v6.2 Yo-Yo corner card + Show on TV panel (v6.3: answer paints once; reconnecting state) |
+| `tools/test-polish.js` | v6.3 regression: key path, early clock, focus restore, phone reconnect, one launch |
 | `relay/` | Node relay (zero dependencies): `server.js`, `phone.html` (iPhone page), brains, tools, TV remote/power, `evals/`, `test/` — see `relay/README.md` |
 | `relay/chats.js`, `relay/stt.js`, `relay/play.js`, `relay/yt-search.js`, `relay/tv-show.js` | v6/v6.2: saved chats, speech-to-text, Play X on &lt;service&gt; (+ experimental YouTube search), Show on TV |
 | `relay/.env.example` | Settings template (copy to `relay/.env`, which is git-ignored) |
@@ -890,6 +977,12 @@ you open each app from Glass Home (`discover.platforms`, `platformsByUsage`; You
 
 ## Changelog
 
+- **v6.3** — Responsiveness and UI polish on top of v6.2. Thinner dock, softer type, quieter glass. Clock paints before
+  the scripts load. Remote focus does not read computed style or the dock's box on the key path. Corner-card answers are
+  not typed in 50 ms slices. A relay blip shows "Reconnecting…" and does not dismiss a finished answer. Phone chat
+  bubbles drop per-bubble backdrop blur; speech-to-text is retried after the relay returns; a double tap cannot launch
+  an app twice. REST 200 (body other than `false`) is not followed by a second WebSocket launch; timeout and a reset
+  before any status still fall back once. Tests: `tools/test-polish.js` and extra cases in `relay/test/tv-remote.test.js`.
 - **v6.2** — Yo-Yo reply corner card on the TV (only while the launcher is in front, never takes focus, fades by itself;
   `voice.card=false` or `?vcard=0` to disable). **Show on TV** for long answers (250+ chars, two-tap confirm): `POST /tv/show`
   brings the launcher forward with a scrollable panel, `POST /tv/back` returns to the previous app, plus `/tv/shown` and

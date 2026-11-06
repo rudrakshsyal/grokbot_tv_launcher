@@ -73,6 +73,31 @@ let pass = 0; const ok = (c, m) => { assert.ok(c, m); pass++; console.log('  ok 
   ok(r.via === 'websocket' && em.params.event === 'ed.apps.launch' && em.params.to === 'host' && em.params.data.appId === 'GlassHome1.launcher', 'ed.apps.launch fallback');
   await tv.launch('../etc').then(() => ok(false, 'bad app'), e => ok(e.code === 'bad-app', 'bad app ids rejected'));
 
+  // malformed REST must not double-launch; a dead REST socket still falls back once; overlapping calls share one POST
+  rest.status = 200; rest.body = '<html>not-json';
+  let framesBefore = TV.frames.length;
+  r = await tv.launch('111299001912');
+  ok(r.via === 'rest' && TV.frames.length === framesBefore, 'HTTP 200 with a non-false body stays on REST (no second launch)');
+  rest.body = 'false';
+  r = await tv.launch('3201907018807');
+  ok(r.via === 'websocket' && r.appId === '3201907018807', 'HTTP 200 body "false" falls back to WebSocket');
+  rest.body = null; rest.drop = true;
+  const emits = () => TV.frames.filter(x => x.method === 'ms.channel.emit' && x.params && x.params.event === 'ed.apps.launch').length;
+  const e0 = emits();
+  r = await tv.launch('3201910019365');
+  ok(r.via === 'websocket' && emits() === e0 + 1, 'REST socket reset before a status falls back to one WebSocket launch');
+  rest.drop = false; rest.delay = 120;
+  const nCalls = rest.calls.length;
+  const both = await Promise.all([tv.launch('3201601007625'), tv.launch('3201601007625')]);
+  ok(both[0] === both[1] && both[0].via === 'rest' && rest.calls.length === nCalls + 1, 'overlapping launches of the same app share one REST call');
+  rest.delay = 0; rest.body = null; rest.status = 200;
+  const tvT = new R.TvRemote({ host: '127.0.0.1', wsPort, restPort, tokenFile, restTimeout: 150, backoff: [50] });
+  rest.hang = true; const e1 = emits();
+  r = await tvT.launch('3201807016597');
+  await until(() => emits() === e1 + 1, 2000);
+  ok(r.via === 'websocket' && emits() === e1 + 1, 'REST timeout falls back to one WebSocket launch');
+  rest.hang = false; tvT.close();
+
   // denied: no automatic retry; Retry (pair()) tries again
   tv.close(); TV.mode = 'deny';
   const tv3 = new R.TvRemote({ host: '127.0.0.1', wsPort, restPort, tokenFile: path.join(tmp, 'other.json'), backoff: [50] });

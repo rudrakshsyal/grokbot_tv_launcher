@@ -161,14 +161,30 @@
     }
   }
 
+  var dropT = null, linkGrace = 9000;
   function connect() {
     var es;
     try { es = new EventSource(RELAY + '/events'); } catch (e) { return; }
     API.es = es;
-    es.onopen = function () { API.available = true; };
-    es.onerror = function () { API.available = false; if (API.open && phase !== 'done') hide(); };   // EventSource retries by itself
+    es.onopen = function () {
+      API.available = true; clearTimeout(dropT); dropT = null;
+      if (window.RH_VoiceCard && RH_VoiceCard.reconnected) RH_VoiceCard.reconnected();
+    };
+    // EventSource retries by itself (the relay asks for 4 s). A blip must not throw away a finished answer,
+    // and a working view stays up long enough for that retry. Repeated errors do not keep postponing the close.
+    es.onerror = function () {
+      API.available = false;
+      if (window.RH_VoiceCard && RH_VoiceCard.linkDown) RH_VoiceCard.linkDown();
+      if (dropT) return;
+      dropT = setTimeout(function () {
+        dropT = null;
+        if (API.available) return;
+        if (API.open && phase !== 'done' && phase !== 'error') hide();
+      }, linkGrace);
+    };
     es.onmessage = function (m) { var ev; try { ev = JSON.parse(m.data); } catch (e) { return; } onEvent(ev); };
   }
+  API._linkGrace = function (ms) { linkGrace = ms; };
 
   function openIdle() {
     show();
