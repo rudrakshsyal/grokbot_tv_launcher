@@ -1,7 +1,8 @@
 /* Glass Home launcher — UI, focus engine, Ambient/Discover states, launching, keys.
  * Responsiveness rules: every keydown is handled synchronously (no debounce, no queued animation); focus changes
- * only toggle classes whose transitions are transform/opacity (140 ms); no layout reads on the key path except
- * cached item centres; persistence writes are deferred. Chromium-76 safe. */
+ * only toggle classes whose transitions are transform/opacity (140 ms); the key path does not read layout or
+ * computed style (item centres are cached off the key path; edge bumps use the known focus transform).
+ * Persistence writes are deferred. Chromium-76 safe. */
 (function () {
   'use strict';
   var CFG = window.RH_CONFIG, APPS = window.RH_APPS, DSC = window.RH_Discover;
@@ -404,7 +405,12 @@
    * ?dock=1 pins it (old behaviour; used by tests that are about other things). Transform + opacity only. */
   var DOCK_PIN = params.dock === '1', dockOn = false, dockTimer = null;
   function showDock() {
-    if (!dockOn) { dockOn = true; body.classList.add('dock-on'); if (window.RH_Wallpaper && RH_Wallpaper.placeGlass) RH_Wallpaper.placeGlass($('dockBg')); }
+    if (!dockOn) {
+      dockOn = true; body.classList.add('dock-on');
+      // Clip the baked glass on the next frame. getBoundingClientRect here would stall the key that reveals the dock.
+      var bg = $('dockBg');
+      requestAnimationFrame(function () { if (dockOn && bg && window.RH_Wallpaper && RH_Wallpaper.placeGlass) RH_Wallpaper.placeGlass(bg); });
+    }
     armDockHide();
   }
   function hideDock() {
@@ -419,7 +425,15 @@
   }
 
   /* ---------------- focus engine ---------------- */
-  function resetCenters() { rows.forEach(function (r) { r.items.forEach(function (el) { el.__cx = undefined; }); }); }
+  var warmRaf = 0;
+  function resetCenters() {
+    rows.forEach(function (r) { r.items.forEach(function (el) { if (el) el.__cx = undefined; }); });
+    if (warmRaf) return;
+    warmRaf = requestAnimationFrame(function () {   // measure off the key path so the next arrow is class-only
+      warmRaf = 0;
+      rows.forEach(function (r) { r.items.forEach(function (el) { if (el && el.__cx === undefined) centerX(el); }); });
+    });
+  }
   function centerX(el) {   // layout-space centre (ignores transforms), cached until the row re-renders
     if (el.__cx !== undefined) return el.__cx;
     var x = 0, n = el;
@@ -492,10 +506,26 @@
     setFocus(nr, best);
   }
   var lastNudge = null;
+  // Focus transforms from css/style.css. Kept here so an edge bump does not call getComputedStyle (a style flush).
+  function nudgeTransform(el) {
+    var c = el.classList;
+    if (c.contains('is-pressed')) {
+      if (c.contains('card') || c.contains('cwi')) return 'scale(1)';
+      if (c.contains('tile')) return 'scale(1.04) translateZ(0)';
+    }
+    if (c.contains('tile-sm')) return 'scale(1.08) translate3d(0,-2px,0)';
+    if (c.contains('tile')) return 'scale(1.06) translate3d(0,-2px,0)';
+    if (c.contains('in-chip')) return 'scale(1.08)';
+    if (c.contains('card') || c.contains('cwi') || c.contains('plat')) return 'scale(1.04)';
+    if (c.contains('pill')) return 'scale(1.08)';
+    if (c.contains('wpinfo')) return 'scale(1.45)';
+    if (c.contains('act') || c.contains('tab') || c.contains('tstat')) return 'scale(1.06)';
+    return 'translateZ(0)';
+  }
   function nudge(dx, dy) { // tiny edge bump; a new press cancels the previous one (never queues)
     var el = cur(); if (!el || !el.animate) return;
     if (lastNudge) { try { lastNudge.cancel(); } catch (e) {} }
-    var tf = getComputedStyle(el).transform; if (!tf || tf === 'none') tf = 'translateZ(0)';
+    var tf = nudgeTransform(el);
     lastNudge = el.animate([{ transform: tf },
       { transform: 'translate3d(' + (dx || 0) * 8 + 'px,' + (dy || 0) * 8 + 'px,0) ' + tf },
       { transform: tf }], { duration: 160, easing: 'ease-out' });
@@ -859,7 +889,8 @@
 
   /* ---------------- boot ---------------- */
   function boot() {
-    // 1) first paint: only what is visible in Ambient
+    if (window.performance && performance.mark) performance.mark('rh-boot');
+    // 1) first paint: only what is visible in Ambient (the clock was already filled by the inline script in index.html)
     clockEl = document.querySelector('.clock');
     if (params.reduce === '1' || CFG.ui.reducedMotion) body.classList.add('reduce-motion');
     var hasWp = (CFG.wallpaper || {}).enabled !== false && params.wp !== 'off';

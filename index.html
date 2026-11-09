@@ -32,6 +32,29 @@
       <div class="amb-date" id="ambDate"></div>
       <div class="wx" id="wx"></div>
     </section>
+    <script>
+      /* Paint the clock before the deferred scripts parse (~160KB). app.js tick() replaces this on boot
+         (including 24-hour mode and the optional name). ES5, Chromium 76 safe. */
+      (function () {
+        try {
+          var d = new Date(), h = d.getHours(), m = d.getMinutes();
+          var mm = (m < 10 ? '0' : '') + m, ap = h < 12 ? 'AM' : 'PM', hh = (h % 12) || 12;
+          var time = hh + ':' + mm + '<small>' + ap + '</small>';
+          var days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+          var months = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+          var date = days[d.getDay()] + ', ' + months[d.getMonth()] + ' ' + d.getDate();
+          var g = h < 5 ? 'Good evening' : h < 12 ? 'Good morning' : h < 17 ? 'Good afternoon' : 'Good evening';
+          var at = document.getElementById('ambTime'), ad = document.getElementById('ambDate');
+          var ct = document.getElementById('time'), cd = document.getElementById('date'), gr = document.getElementById('greet');
+          if (at) at.innerHTML = time;
+          if (ad) ad.textContent = date;
+          if (ct) ct.innerHTML = time;
+          if (cd) cd.textContent = date;
+          if (gr && !gr.textContent) gr.textContent = g;
+          if (window.performance && performance.mark) performance.mark('rh-clock');
+        } catch (e) {}
+      })();
+    </script>
 
     <section class="discover" id="discover" aria-label="Discover">
       <div class="tstat" id="tstat"></div>

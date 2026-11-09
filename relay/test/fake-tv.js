@@ -59,8 +59,16 @@ async function start(o) {
     if (req.method === 'GET' && req.url === '/api/v2/') { res.writeHead(200); return res.end(JSON.stringify({ device: { PowerState: TV.power, TokenAuthSupport: String(TV.tokenAuth), modelName: TV.model, wifiMac: TV.wifiMac || undefined }, name: '[TV] Fake', type: 'Samsung SmartTV' })); }
     const m = /^\/api\/v2\/applications\/([^/?]+)$/.exec(req.url);
     if (m && req.method === 'GET') { res.writeHead(200); return res.end(JSON.stringify({ id: m[1], name: m[1], running: !!TV.running[m[1]], visible: !!TV.running[m[1]], version: '1.0' })); }
-    if (m && req.method === 'POST' && TV.rest.status === 200) { Object.keys(TV.running).forEach(k => TV.running[k] = false); TV.running[decodeURIComponent(m[1])] = true; TV.events.push('launch ' + decodeURIComponent(m[1])); }
-    res.writeHead(TV.rest.status); res.end(TV.rest.status === 200 ? 'true' : 'nope');
+    const finish = () => {
+      if (TV.rest.drop) { try { req.socket.destroy(); } catch (e) {} return; }
+      const body = TV.rest.body != null ? TV.rest.body : (TV.rest.status === 200 ? 'true' : 'nope');
+      if (m && req.method === 'POST' && TV.rest.status === 200 && !/^\s*false\s*$/.test(body)) {
+        Object.keys(TV.running).forEach(k => TV.running[k] = false); TV.running[decodeURIComponent(m[1])] = true; TV.events.push('launch ' + decodeURIComponent(m[1]));
+      }
+      res.writeHead(TV.rest.status); res.end(body);
+    };
+    if (TV.rest.hang) return;
+    if (TV.rest.delay) setTimeout(finish, TV.rest.delay); else finish();
   });
   // DIAL (the TV's second-screen protocol, :8080/ws/apps/<App>): POST body -> 201 Created + app runs
   const DIAL_APPS = { YouTube: '9Ur5IzDKqV.TizenYouTube', Netflix: 'org.tizen.netflix-app' };

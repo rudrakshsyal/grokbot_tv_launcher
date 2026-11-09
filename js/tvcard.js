@@ -61,7 +61,7 @@
       '<div class="yc-q" id="ycQ"></div><div class="yc-a" id="ycA"></div><div class="yc-f" id="ycF"></div>';
     stage().appendChild(el); glass(el);
   }
-  var STATE_TEXT = { listening: 'Listening\u2026', thinking: 'Thinking\u2026', answering: 'Answering', done: 'Answered', error: 'Couldn\u2019t answer' };
+  var STATE_TEXT = { listening: 'Listening\u2026', thinking: 'Thinking\u2026', answering: 'Answering', reconnecting: 'Reconnecting\u2026', done: 'Answered', error: 'Couldn\u2019t answer' };
   function paintCard() {
     C.el.className = 'yc glass on yc-' + C.state;
     $('ycSt').textContent = STATE_TEXT[C.state] || '';
@@ -79,20 +79,30 @@
     clearTimeout(C.fadeT); C.fadeT = setTimeout(hideCard, 120000);   // never stays up forever
   }
   function hideCard() {
-    clearTimeout(C.fadeT); clearInterval(C.revealT); C.revealT = null;
+    clearTimeout(C.fadeT); clearTimeout(C.linkT); clearInterval(C.revealT); C.revealT = null;
     if (!C.on) return;
     C.on = false; C.state = 'idle'; C.el.className = 'yc glass yc-out';
   }
   function setAnswerText(t) { var a = $('ycA'); a.textContent = t; C.cut = a.scrollHeight > a.clientHeight + 4; }
   function fadeAfter(len) { clearTimeout(C.fadeT); C.fadeT = setTimeout(hideCard, Math.min(20000, 8000 + Math.max(0, len - 80) * 30)); }
-  function reveal(text, done) {   // the relay sends the whole answer at once: type it in quickly so "answering" reads as live
-    clearInterval(C.revealT);
-    var words = text.split(' '), n = 0, total = Math.min(1400, 240 + words.length * 22), per = Math.max(1, Math.ceil(words.length / (total / 50)));
-    C.revealT = setInterval(function () {
-      n = Math.min(words.length, n + per); $('ycA').textContent = words.slice(0, n).join(' ');
-      if (n >= words.length) { clearInterval(C.revealT); C.revealT = null; done(); }
-    }, 50);
-  }
+  var linkGrace = 8000;
+  // The event stream dropped mid-question. One quiet state; the answer text is not typed in (that was a 50 ms layout loop).
+  API.linkDown = function () {
+    if (!C.on || C.state === 'done' || C.state === 'error' || C.state === 'reconnecting') return;
+    C.prevState = C.state; C.state = 'reconnecting'; paintCard();
+    clearTimeout(C.linkT);
+    C.linkT = setTimeout(function () {
+      if (!C.on || C.state !== 'reconnecting') return;
+      C.state = 'error'; setAnswerText('Lost the connection. Ask again from your phone.'); paintCard();
+      clearTimeout(C.fadeT); C.fadeT = setTimeout(hideCard, 6000);
+    }, linkGrace);
+  };
+  API.reconnected = function () {
+    clearTimeout(C.linkT);
+    if (!C.on || C.state !== 'reconnecting') return;
+    C.state = C.prevState || 'listening'; paintCard();
+  };
+  API._linkGrace = function (ms) { linkGrace = ms; };
   // events from voice.js while the full overlay is closed. Returns true when the card handled it.
   API.event = function (ev) {
     if (!API.enabled || !ev) return false;
@@ -107,8 +117,11 @@
         if (ev.phase === 'start' && C.state === 'thinking' && ev.label) { $('ycA').innerHTML = '<span class="yc-step">' + esc(ev.label) + '\u2026</span>'; C.cut = false; }
         return true;
       case 'answer': if (ev.session !== C.session && C.session != null) return true;
-        showCard(); C.state = 'answering'; var t = plain(ev.text) || 'Done.'; C.text = t; setAnswerText(''); paintCard();
-        reveal(t, function () { setAnswerText(t); C.state = 'done'; paintCard(); fadeAfter(t.length); });
+        showCard(); clearTimeout(C.linkT); C.state = 'answering'; var t = plain(ev.text) || 'Done.'; C.text = t; setAnswerText(t); paintCard();
+        requestAnimationFrame(function () {
+          if (!C.on || (C.session != null && ev.session !== C.session)) return;
+          C.state = 'done'; paintCard(); fadeAfter(t.length);
+        });
         return true;
       case 'error': if (ev.superseded || (ev.session !== C.session && C.session != null)) return true;
         showCard(); C.state = 'error'; setAnswerText(ev.message || 'Something went wrong.'); paintCard(); fadeAfter(0); clearTimeout(C.fadeT); C.fadeT = setTimeout(hideCard, 6000);
